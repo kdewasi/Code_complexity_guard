@@ -38,7 +38,6 @@ def warning_complexity(a, b, c):
 
 
 def critical_complexity(a, b, c, d, e):
-    """Complexity: 16+ - Should show RED decoration"""
     if a > 0:
         if b > 0:
             if c > 0:

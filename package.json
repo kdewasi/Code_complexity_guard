@@ -2,7 +2,7 @@
     "name": "codecomplexity",
     "displayName": "AI Code Quality Guard",
     "description": "Real-time code complexity analysis and AI-powered refactoring for Python",
-    "version": "0.1.0",
+    "version": "0.1.3",
     "publisher": "Kishan-aicodeguard",
     "author": {
         "name": "Your Name"

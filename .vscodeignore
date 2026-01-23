@@ -60,6 +60,8 @@ TESTING.md
 # Keep only compiled output
 !out/src/**/*.js
 !out/src/**/*.js.map
+!python_src/**
+
 
 # Assets to keep
 !icon.png

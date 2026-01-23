@@ -93,6 +93,12 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
+    // Register command: Report Issue
+    let reportIssueCommand = vscode.commands.registerCommand('codecomplexity.reportIssue', async () => {
+        const url = 'https://github.com/kdewasi/Code_complexity_guard/issues/new?labels=bug&template=bug_report.md';
+        await vscode.env.openExternal(vscode.Uri.parse(url));
+    });
+
     // Listen to active editor changes
     vscode.window.onDidChangeActiveTextEditor(editor => {
         if (editor && editor.document.languageId === 'python') {
@@ -259,25 +265,15 @@ async function checkPythonSetupOnActivation() {
         const setup = await pythonRunner.checkPythonSetup();
 
         if (!setup.valid) {
-            if (!setup.packageInstalled) {
-                const action = await vscode.window.showWarningMessage(
-                    'codecomplexity Python package is not installed. Would you like to install it?',
-                    'Install',
-                    'Later'
-                );
-
-                if (action === 'Install') {
-                    await installPackage();
-                }
-            } else {
-                vscode.window.showErrorMessage(
-                    `Python setup error: ${setup.error}. Please check your Python path in settings.`
-                );
-            }
             outputChannel.appendLine(`❌ Python setup failed: ${setup.error}`);
+            vscode.window.showErrorMessage(`Python setup failed: ${setup.error}. Is Python installed?`);
         } else {
             outputChannel.appendLine(`✓ Python found: ${setup.pythonPath}`);
-            outputChannel.appendLine(`✓ codecomplexity package installed`);
+            if (setup.usingBundled) {
+                outputChannel.appendLine(`✓ Using bundled Code Complexity engine`);
+            } else {
+                outputChannel.appendLine(`✓ codecomplexity package installed (Global)`);
+            }
             vscode.window.showInformationMessage('AI Code Quality Guard ready!');
         }
     } catch (error: any) {
