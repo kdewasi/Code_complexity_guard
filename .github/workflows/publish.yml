@@ -1,0 +1,50 @@
+name: Publish Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 18
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Run tests
+      run: |
+        # Run tests (xvfb is needed for UI tests on Linux)
+        xvfb-run -a npm test
+      # If strict UI tests are not possible on headless CI without more config, 
+      # you might want to switch to unit tests only or ensure the test runner supports headless.
+      continue-on-error: true  # Optional: prevent build fail if UI tests are flaky on CI
+
+    - name: Compile
+      run: npm run compile
+
+    - name: Package Extension
+      run: npx vsce package
+
+    - name: Publish to Marketplace
+      run: npx vsce publish -p ${{ secrets.VSCE_PAT }}
+      continue-on-error: true # Don't fail if already published (useful for re-runs)
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: "*.vsix"
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,66 @@
+# Build and development files
+.vscode/**
+.vscode-test/**
+src/**
+test/**
+node_modules/**
+.gitignore
+.gitattributes
+tsconfig.json
+*.map
+
+# Documentation (keep only essential)
+!README.md
+!CHANGELOG.md
+!LICENSE
+*.md
+!README.md
+!CHANGELOG.md
+
+# Development files
+.eslintrc.json
+.prettierrc
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.swp
+*.swo
+*~
+.idea/
+
+# Backup files
+*.backup
+extension.ts.backup
+
+# Test files
+test_*.py
+**/test/**
+**/*.test.ts
+**/*.test.js
+
+# Documentation (internal)
+INTEGRATION_NOTES.txt
+DELIVERABLES.md
+DOCUMENTATION_INDEX.md
+IMPLEMENTATION_STATUS.md
+QUICK_START.md
+README_STEP11.md
+START_HERE.md
+STEP_11_COMPLETE.md
+TEST_EXECUTION_REPORT.md
+TESTING.md
+
+# Keep only compiled output
+!out/src/**/*.js
+!out/src/**/*.js.map
+
+# Assets to keep
+!icon.png
+!assets/**

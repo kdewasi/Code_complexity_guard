@@ -1,0 +1,115 @@
+// Add these lines to extension.ts after the imports:
+// import { ComplexityCodeActionProvider, showBreakdown, ignoreWarning, configureThreshold } from './codeActionProvider';
+// import { SuggestionPanel } from './suggestionPanel';
+
+// Add these variables after decorationManager:
+// let codeActionProvider: ComplexityCodeActionProvider;
+// let diagnosticCollection: vscode.DiagnosticCollection;
+
+// Add these in activate() function after creating decorationManager:
+
+// Create code action provider
+codeActionProvider = new ComplexityCodeActionProvider();
+context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider('python', codeActionProvider, {
+        providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+    })
+);
+
+// Create diagnostic collection
+diagnosticCollection = vscode.languages.createDiagnosticCollection('complexity');
+context.subscriptions.push(diagnosticCollection);
+
+// Add these command registrations after the existing commands:
+
+// Register command: Show Suggestions Panel
+let showSuggestionsCommand = vscode.commands.registerCommand(
+    'codecomplexity.showSuggestionsPanel',
+    async (filepath: string, functionName: string) => {
+        await SuggestionPanel.show(filepath, functionName);
+    }
+);
+
+// Register command: Show Breakdown
+let showBreakdownCommand = vscode.commands.registerCommand(
+    'codecomplexity.showBreakdown',
+    async (func: pythonRunner.FunctionComplexity) => {
+        await showBreakdown(func, outputChannel);
+    }
+);
+
+// Register command: Ignore Warning
+let ignoreWarningCommand = vscode.commands.registerCommand(
+    'codecomplexity.ignoreWarning',
+    async (document: vscode.TextDocument, functionLine: number) => {
+        await ignoreWarning(document, functionLine);
+    }
+);
+
+// Register command: Configure Threshold
+let configureThresholdCommand = vscode.commands.registerCommand(
+    'codecomplexity.configureThreshold',
+    async () => {
+        await configureThreshold();
+    }
+);
+
+// Add these to context.subscriptions.push() at the end of activate():
+context.subscriptions.push(showSuggestionsCommand);
+context.subscriptions.push(showBreakdownCommand);
+context.subscriptions.push(ignoreWarningCommand);
+context.subscriptions.push(configureThresholdCommand);
+
+// In the analyzeDocument() function, after caching the result, add:
+// Update code action provider with results
+codeActionProvider.setAnalysisResults(document, result);
+
+// Update diagnostics
+updateDiagnostics(document, result);
+
+// Add this new function before deactivate():
+/**
+ * Update diagnostics for a document
+ */
+function updateDiagnostics(document: vscode.TextDocument, result: pythonRunner.AnalysisResult): void {
+    const diagnostics: vscode.Diagnostic[] = [];
+    const config = vscode.workspace.getConfiguration('codecomplexity');
+    const warningThreshold = config.get<number>('warningThreshold', 8);
+    const criticalThreshold = config.get<number>('criticalThreshold', 15);
+    
+    for (const func of result.functions) {
+        // Skip if has ignore comment
+        const lineIndex = func.line - 2;
+        if (lineIndex >= 0 && lineIndex < document.lineCount) {
+            const line = document.lineAt(lineIndex);
+            if (line.text.includes('# codecomplexity: ignore')) {
+                continue;
+            }
+        }
+        
+        if (func.complexity > warningThreshold) {
+            const line = func.line - 1; // Convert to 0-indexed
+            const range = document.lineAt(line).range;
+            
+            let severity = vscode.DiagnosticSeverity.Warning;
+            let message = `Function '${func.name}' has moderate complexity (${func.complexity}). Consider refactoring.`;
+            
+            if (func.complexity > criticalThreshold) {
+                severity = vscode.DiagnosticSeverity.Error;
+                message = `Function '${func.name}' has high complexity (${func.complexity}). Refactoring strongly recommended.`;
+            }
+            
+            const diagnostic = new vscode.Diagnostic(range, message, severity);
+            diagnostic.source = 'codecomplexity';
+            diagnostic.code = 'high-complexity';
+            diagnostics.push(diagnostic);
+        }
+    }
+    
+    diagnosticCollection.set(document.uri, diagnostics);
+}
+
+// In deactivate(), add:
+if (diagnosticCollection) {
+    diagnosticCollection.dispose();
+}

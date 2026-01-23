@@ -1,0 +1,27 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Production
+out
+dist
+build
+
+# Misc
+.DS_Store
+.env
+.npm
+*.log
+
+# VSIX extension package
+*.vsix
+
+# VS Code specific
+.vscode-test
+.vscode/
+!/.vscode/launch.json
+!/.vscode/tasks.json

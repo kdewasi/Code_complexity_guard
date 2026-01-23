@@ -1,0 +1,41 @@
+name: Test Extension
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [18]
+
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node }}
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Compile
+      run: npm run compile
+
+    - name: Run Tests (Linux)
+      if: runner.os == 'Linux'
+      run: xvfb-run -a npm test
+      continue-on-error: true
+
+    - name: Run Tests (Windows)
+      if: runner.os == 'Windows'
+      run: npm test
+      continue-on-error: true

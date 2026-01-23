@@ -1,0 +1,150 @@
+{
+    "name": "codecomplexity",
+    "displayName": "AI Code Quality Guard",
+    "description": "Real-time code complexity analysis and AI-powered refactoring for Python",
+    "version": "0.1.0",
+    "publisher": "Kishan-aicodeguard",
+    "author": {
+        "name": "Your Name"
+    },
+    "license": "MIT",
+    "icon": "icon.png",
+    "engines": {
+        "vscode": "^1.80.0"
+    },
+    "categories": [
+        "Linters",
+        "Programming Languages",
+        "Machine Learning"
+    ],
+    "keywords": [
+        "python",
+        "complexity",
+        "refactoring",
+        "code quality",
+        "ai",
+        "linter",
+        "cyclomatic complexity",
+        "code analysis",
+        "claude",
+        "anthropic"
+    ],
+    "activationEvents": [
+        "onLanguage:python"
+    ],
+    "main": "./out/src/extension.js",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/yourusername/codecomplexity.git"
+    },
+    "bugs": {
+        "url": "https://github.com/yourusername/codecomplexity/issues"
+    },
+    "homepage": "https://github.com/yourusername/codecomplexity#readme",
+    "contributes": {
+        "commands": [
+            {
+                "command": "codecomplexity.analyzeFile",
+                "title": "AI Code Quality Guard: Analyze current file"
+            },
+            {
+                "command": "codecomplexity.suggestRefactoring",
+                "title": "AI Code Quality Guard: Get refactoring suggestions"
+            },
+            {
+                "command": "codecomplexity.installPackage",
+                "title": "AI Code Quality Guard: Install Python package"
+            },
+            {
+                "command": "codecomplexity.showSuggestionsPanel",
+                "title": "AI Code Quality Guard: Show suggestions panel"
+            },
+            {
+                "command": "codecomplexity.showBreakdown",
+                "title": "AI Code Quality Guard: View complexity breakdown"
+            },
+            {
+                "command": "codecomplexity.ignoreWarning",
+                "title": "AI Code Quality Guard: Ignore this warning"
+            },
+            {
+                "command": "codecomplexity.configureThreshold",
+                "title": "AI Code Quality Guard: Configure threshold"
+            }
+        ],
+        "configuration": {
+            "title": "AI Code Quality Guard",
+            "properties": {
+                "codecomplexity.pythonPath": {
+                    "type": "string",
+                    "default": "python",
+                    "description": "Path to Python interpreter"
+                },
+                "codecomplexity.warningThreshold": {
+                    "type": "number",
+                    "default": 8,
+                    "description": "Complexity warning threshold"
+                },
+                "codecomplexity.criticalThreshold": {
+                    "type": "number",
+                    "default": 15,
+                    "description": "Complexity critical threshold"
+                },
+                "codecomplexity.enableRealtime": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Enable real-time complexity analysis"
+                },
+                "codecomplexity.apiKey": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Claude API key for AI-powered refactoring (or set ANTHROPIC_API_KEY environment variable)"
+                },
+                "codecomplexity.aiModel": {
+                    "type": "string",
+                    "default": "claude-3-5-sonnet-20241022",
+                    "description": "Claude model to use for refactoring",
+                    "enum": [
+                        "claude-3-5-sonnet-20241022",
+                        "claude-3-opus-20240229",
+                        "claude-3-sonnet-20240229"
+                    ]
+                },
+                "codecomplexity.maxTokens": {
+                    "type": "number",
+                    "default": 4000,
+                    "description": "Maximum tokens per AI refactoring request"
+                },
+                "codecomplexity.confirmBeforeRefactor": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Ask for confirmation before calling AI API"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "pretest": "npm run compile",
+        "test": "node ./out/test/runTest.js",
+        "package": "vsce package",
+        "publish": "vsce publish"
+    },
+    "devDependencies": {
+        "@types/chai": "^5.2.3",
+        "@types/glob": "^9.0.0",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "^18.0.0",
+        "@types/vscode": "^1.80.0",
+        "@vscode/test-electron": "^2.5.2",
+        "chai": "^6.2.2",
+        "glob": "^13.0.0",
+        "mocha": "^11.7.5",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.71.2"
+    }
+}
