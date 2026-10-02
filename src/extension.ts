@@ -1,483 +1,255 @@
+/**
+ * Complexity Guard — extension entry point.
+ *
+ * Everything runs locally: tree-sitter parsers (WebAssembly) analyse the text
+ * of open files inside the extension host. No network, no shell, no API keys.
+ */
 import * as vscode from 'vscode';
-import * as pythonRunner from './pythonRunner';
-import { DecorationManager } from './decorationManager';
-import { ComplexityCodeActionProvider, showBreakdown, ignoreWarning, configureThreshold } from './codeActionProvider';
-import { SuggestionPanel } from './suggestionPanel';
+import { getSpec } from './engine';
+import { AnalysisService } from './vscode/analysisService';
+import { ComplexityCodeActionProvider, ignoreFunction } from './vscode/codeActions';
+import { ComplexityCodeLensProvider } from './vscode/codeLens';
+import { CONFIG_SECTION, SUPPORTED_VSCODE_LANGUAGES, getSettings, languageOf } from './vscode/config';
+import { DecorationManager } from './vscode/decorations';
+import { DiagnosticsManager } from './vscode/diagnostics';
+import { FunctionsTreeProvider } from './vscode/functionsTree';
+import { ComplexityHoverProvider, buildMetricsExplanation } from './vscode/hover';
+import { ReportPanel, revealLine } from './vscode/reportPanel';
+import { StatusBar } from './vscode/statusBar';
+import { scanWorkspace } from './vscode/workspaceScan';
 
-let outputChannel: vscode.OutputChannel;
-let statusBarItem: vscode.StatusBarItem;
-let decorationManager: DecorationManager;
-let codeActionProvider: ComplexityCodeActionProvider;
-let diagnosticCollection: vscode.DiagnosticCollection;
-let analysisTimeout: NodeJS.Timeout | undefined;
+const SUPPORTED_CONTEXT = 'codecomplexity.supportedLanguage';
 
-/**
- * This method is called when the extension is activated.
- */
-export function activate(context: vscode.ExtensionContext) {
-    console.log('AI Code Quality Guard extension is now active!');
+export function activate(context: vscode.ExtensionContext): void {
+    const log = vscode.window.createOutputChannel('Complexity Guard');
+    const service = new AnalysisService(context.extensionPath, log);
+    const decorations = new DecorationManager();
+    const diagnostics = new DiagnosticsManager();
+    const statusBar = new StatusBar();
+    const codeLens = new ComplexityCodeLensProvider(service);
+    const tree = new FunctionsTreeProvider(service);
+    const selector: vscode.DocumentSelector = SUPPORTED_VSCODE_LANGUAGES.map((language) => ({ language }));
 
-    // Create output channel
-    outputChannel = vscode.window.createOutputChannel('AI Code Quality Guard');
-    context.subscriptions.push(outputChannel);
-
-    // Create status bar item
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.command = 'codecomplexity.analyzeFile';
-    statusBarItem.tooltip = 'Click to analyze file complexity';
-    context.subscriptions.push(statusBarItem);
-
-    // Create decoration manager
-    decorationManager = new DecorationManager();
-    context.subscriptions.push(decorationManager);
-
-    // Create code action provider
-    codeActionProvider = new ComplexityCodeActionProvider();
     context.subscriptions.push(
-        vscode.languages.registerCodeActionsProvider('python', codeActionProvider, {
-            providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
-        })
+        log,
+        service,
+        decorations,
+        diagnostics,
+        statusBar,
+        codeLens,
+        tree,
+        vscode.languages.registerCodeLensProvider(selector, codeLens),
+        vscode.languages.registerHoverProvider(selector, new ComplexityHoverProvider(service)),
+        vscode.languages.registerCodeActionsProvider(selector, new ComplexityCodeActionProvider(service, diagnostics), { providedCodeActionKinds: ComplexityCodeActionProvider.kinds }),
+        vscode.window.registerTreeDataProvider('codecomplexity.functionsView', tree),
     );
 
-    // Create diagnostic collection
-    diagnosticCollection = vscode.languages.createDiagnosticCollection('complexity');
-    context.subscriptions.push(diagnosticCollection);
+    // ---- apply results to the UI
+    context.subscriptions.push(
+        service.onDidAnalyze(({ uri, result }) => {
+            for (const editor of vscode.window.visibleTextEditors) {
+                if (editor.document.uri.toString() === uri.toString()) {
+                    decorations.apply(editor, result);
+                    diagnostics.update(editor.document, result);
+                }
+            }
+            const active = vscode.window.activeTextEditor;
+            if (active && active.document.uri.toString() === uri.toString()) {
+                statusBar.showResult(result);
+            }
+            ReportPanel.instance?.refreshFile(uri, result);
+        }),
+    );
 
-    // Check Python setup on activation
-    checkPythonSetupOnActivation();
-
-    // Register command: Analyze File
-    let analyzeCommand = vscode.commands.registerCommand('codecomplexity.analyzeFile', async () => {
-        await analyzeCurrentFile();
-    });
-
-    // Register command: Suggest Refactoring
-    let suggestCommand = vscode.commands.registerCommand('codecomplexity.suggestRefactoring', async () => {
-        await suggestRefactoring();
-    });
-
-    // Register command: Install Package
-    let installCommand = vscode.commands.registerCommand('codecomplexity.installPackage', async () => {
-        await installPackage();
-    });
-
-    // Register command: Show Suggestions Panel
-    let showSuggestionsCommand = vscode.commands.registerCommand(
-        'codecomplexity.showSuggestionsPanel',
-        async (filepath: string, functionName: string) => {
-            await SuggestionPanel.show(filepath, functionName);
+    const onEditor = (editor: vscode.TextEditor | undefined): void => {
+        const supported = !!editor && !!languageOf(editor.document);
+        void vscode.commands.executeCommand('setContext', SUPPORTED_CONTEXT, supported);
+        if (!editor || !supported) {
+            statusBar.showUnsupported();
+            return;
         }
-    );
-
-    // Register command: Show Breakdown
-    let showBreakdownCommand = vscode.commands.registerCommand(
-        'codecomplexity.showBreakdown',
-        async (func: pythonRunner.FunctionComplexity) => {
-            await showBreakdown(func, outputChannel);
-        }
-    );
-
-    // Register command: Ignore Warning
-    let ignoreWarningCommand = vscode.commands.registerCommand(
-        'codecomplexity.ignoreWarning',
-        async (document: vscode.TextDocument, functionLine: number) => {
-            await ignoreWarning(document, functionLine);
-        }
-    );
-
-    // Register command: Configure Threshold
-    let configureThresholdCommand = vscode.commands.registerCommand(
-        'codecomplexity.configureThreshold',
-        async () => {
-            await configureThreshold();
-        }
-    );
-
-    // Register command: Report Issue
-    let reportIssueCommand = vscode.commands.registerCommand('codecomplexity.reportIssue', async () => {
-        const url = 'https://github.com/kdewasi/Code_complexity_guard/issues/new?labels=bug&template=bug_report.md';
-        await vscode.env.openExternal(vscode.Uri.parse(url));
-    });
-
-    // Listen to active editor changes
-    vscode.window.onDidChangeActiveTextEditor(editor => {
-        if (editor && editor.document.languageId === 'python') {
-            scheduleAnalysis(editor.document, editor);
+        const cached = service.getCached(editor.document.uri);
+        if (cached) {
+            decorations.apply(editor, cached);
+            diagnostics.update(editor.document, cached);
+            statusBar.showResult(cached);
         } else {
-            statusBarItem.hide();
+            statusBar.showAnalyzing();
         }
-    });
+        service.schedule(editor.document, 50);
+    };
 
-    // Listen to document saves for real-time analysis
-    vscode.workspace.onDidSaveTextDocument(document => {
-        const config = vscode.workspace.getConfiguration('codecomplexity');
-        const enableRealtime = config.get<boolean>('enableRealtime', true);
-
-        if (enableRealtime && document.languageId === 'python') {
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document === document) {
-                // Clear cache on save
-                decorationManager.clearCache(document);
-                scheduleAnalysis(document, editor);
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(onEditor),
+        vscode.window.onDidChangeVisibleTextEditors((editors) => {
+            for (const e of editors) {
+                const cached = service.getCached(e.document.uri);
+                if (cached) {
+                    decorations.apply(e, cached);
+                }
             }
-        }
-    });
-
-    // Listen to configuration changes
-    vscode.workspace.onDidChangeConfiguration(e => {
-        if (e.affectsConfiguration('codecomplexity')) {
-            // Re-analyze current file with new settings
-            const editor = vscode.window.activeTextEditor;
-            if (editor && editor.document.languageId === 'python') {
-                decorationManager.clearCache(editor.document);
-                scheduleAnalysis(editor.document, editor);
+        }),
+        vscode.workspace.onDidChangeTextDocument((e) => {
+            if (!languageOf(e.document)) {
+                return;
             }
-        }
-    });
-
-    // Analyze current editor on activation
-    if (vscode.window.activeTextEditor?.document.languageId === 'python') {
-        scheduleAnalysis(
-            vscode.window.activeTextEditor.document,
-            vscode.window.activeTextEditor
-        );
-    }
-
-    context.subscriptions.push(analyzeCommand);
-    context.subscriptions.push(suggestCommand);
-    context.subscriptions.push(installCommand);
-    context.subscriptions.push(showSuggestionsCommand);
-    context.subscriptions.push(showBreakdownCommand);
-    context.subscriptions.push(ignoreWarningCommand);
-    context.subscriptions.push(configureThresholdCommand);
-}
-
-/**
- * Schedule analysis with debouncing
- */
-function scheduleAnalysis(document: vscode.TextDocument, editor: vscode.TextEditor) {
-    // Clear existing timeout
-    if (analysisTimeout) {
-        clearTimeout(analysisTimeout);
-    }
-
-    // Check if we have cached result
-    const cached = decorationManager.getCachedResult(document);
-    if (cached && !document.isDirty) {
-        // Use cached result immediately
-        updateStatusBarWithResult(cached);
-        decorationManager.updateDecorations(editor, cached);
-        codeActionProvider.setAnalysisResults(document, cached);
-        updateDiagnostics(document, cached);
-        return;
-    }
-
-    // Show analyzing status
-    statusBarItem.text = '⏳ Analyzing...';
-    statusBarItem.show();
-
-    // Schedule analysis after 500ms of inactivity
-    analysisTimeout = setTimeout(async () => {
-        await analyzeDocument(document, editor);
-    }, 500);
-}
-
-/**
- * Analyze a document and update decorations
- */
-async function analyzeDocument(document: vscode.TextDocument, editor: vscode.TextEditor) {
-    try {
-        const result = await pythonRunner.analyzePythonFile(document.uri.fsPath);
-
-        // Cache the result
-        decorationManager.cacheResult(document, result);
-
-        // Update status bar
-        updateStatusBarWithResult(result);
-
-        // Update decorations
-        await decorationManager.updateDecorations(editor, result);
-
-        // Update code action provider with results
-        codeActionProvider.setAnalysisResults(document, result);
-
-        // Update diagnostics
-        updateDiagnostics(document, result);
-
-    } catch (error: any) {
-        // Silently fail for background analysis
-        statusBarItem.text = '⚠️ Complexity: N/A';
-        statusBarItem.show();
-
-        // Log error to output channel
-        outputChannel.appendLine(`Analysis failed: ${error.message}`);
-    }
-}
-
-/**
- * Update diagnostics for a document
- */
-function updateDiagnostics(document: vscode.TextDocument, result: pythonRunner.AnalysisResult): void {
-    const diagnostics: vscode.Diagnostic[] = [];
-    const config = vscode.workspace.getConfiguration('codecomplexity');
-    const warningThreshold = config.get<number>('warningThreshold', 8);
-    const criticalThreshold = config.get<number>('criticalThreshold', 15);
-
-    for (const func of result.functions) {
-        // Skip if has ignore comment
-        const lineIndex = func.line - 2;
-        if (lineIndex >= 0 && lineIndex < document.lineCount) {
-            const line = document.lineAt(lineIndex);
-            if (line.text.includes('# codecomplexity: ignore')) {
-                continue;
+            const settings = getSettings();
+            if (settings.enableRealtime) {
+                service.schedule(e.document);
             }
-        }
-
-        if (func.complexity > warningThreshold) {
-            const line = func.line - 1; // Convert to 0-indexed
-            const range = document.lineAt(line).range;
-
-            let severity = vscode.DiagnosticSeverity.Warning;
-            let message = `Function '${func.name}' has moderate complexity (${func.complexity}). Consider refactoring.`;
-
-            if (func.complexity > criticalThreshold) {
-                severity = vscode.DiagnosticSeverity.Error;
-                message = `Function '${func.name}' has high complexity (${func.complexity}). Refactoring strongly recommended.`;
+        }),
+        vscode.workspace.onDidSaveTextDocument((doc) => {
+            if (languageOf(doc)) {
+                service.schedule(doc, 10);
             }
-
-            const diagnostic = new vscode.Diagnostic(range, message, severity);
-            diagnostic.source = 'codecomplexity';
-            diagnostic.code = 'high-complexity';
-            diagnostics.push(diagnostic);
-        }
-    }
-
-    diagnosticCollection.set(document.uri, diagnostics);
-}
-
-/**
- * Check Python setup and show warnings if needed
- */
-async function checkPythonSetupOnActivation() {
-    outputChannel.appendLine('Checking Python setup...');
-
-    try {
-        const setup = await pythonRunner.checkPythonSetup();
-
-        if (!setup.valid) {
-            outputChannel.appendLine(`❌ Python setup failed: ${setup.error}`);
-            vscode.window.showErrorMessage(`Python setup failed: ${setup.error}. Is Python installed?`);
-        } else {
-            outputChannel.appendLine(`✓ Python found: ${setup.pythonPath}`);
-            if (setup.usingBundled) {
-                outputChannel.appendLine(`✓ Using bundled Code Complexity engine`);
-            } else {
-                outputChannel.appendLine(`✓ codecomplexity package installed (Global)`);
+        }),
+        vscode.workspace.onDidCloseTextDocument((doc) => {
+            service.forget(doc.uri);
+            diagnostics.clear(doc.uri);
+        }),
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (!e.affectsConfiguration(CONFIG_SECTION)) {
+                return;
             }
-            vscode.window.showInformationMessage('AI Code Quality Guard ready!');
-        }
-    } catch (error: any) {
-        outputChannel.appendLine(`❌ Setup check failed: ${error.message}`);
-    }
-}
-
-/**
- * Install codecomplexity package
- */
-async function installPackage() {
-    outputChannel.appendLine('Installing codecomplexity package...');
-
-    try {
-        await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Installing codecomplexity package...',
-            cancellable: false
-        }, async () => {
-            await pythonRunner.installCodeComplexity();
-        });
-
-        outputChannel.appendLine('✓ Package installed successfully');
-        vscode.window.showInformationMessage('codecomplexity package installed successfully!');
-    } catch (error: any) {
-        outputChannel.appendLine(`❌ Installation failed: ${error.message}`);
-        vscode.window.showErrorMessage(`Failed to install package: ${error.message}`);
-    }
-}
-
-/**
- * Analyze the current Python file
- */
-async function analyzeCurrentFile() {
-    const editor = vscode.window.activeTextEditor;
-
-    if (!editor) {
-        vscode.window.showErrorMessage('No active editor found');
-        return;
-    }
-
-    const document = editor.document;
-
-    if (document.languageId !== 'python') {
-        vscode.window.showErrorMessage('This command only works with Python files');
-        return;
-    }
-
-    // Save file if modified
-    if (document.isDirty) {
-        await document.save();
-    }
-
-    const filepath = document.uri.fsPath;
-
-    outputChannel.show();
-    outputChannel.appendLine(`\n${'='.repeat(80)}`);
-    outputChannel.appendLine(`Analyzing: ${filepath}`);
-    outputChannel.appendLine('='.repeat(80));
-
-    try {
-        const result = await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: 'Analyzing file complexity...',
-            cancellable: false
-        }, async () => {
-            return await pythonRunner.analyzePythonFile(filepath);
-        });
-
-        // Display results
-        displayAnalysisResults(result);
-
-        // Update status bar
-        updateStatusBarWithResult(result);
-
-        // Update decorations
-        await decorationManager.updateDecorations(editor, result);
-
-        // Cache result
-        decorationManager.cacheResult(document, result);
-
-        // Update code action provider
-        codeActionProvider.setAnalysisResults(document, result);
-
-        // Update diagnostics
-        updateDiagnostics(document, result);
-
-    } catch (error: any) {
-        outputChannel.appendLine(`\n❌ Error: ${error.message}`);
-        vscode.window.showErrorMessage(`Analysis failed: ${error.message}`);
-    }
-}
-
-/**
- * Display analysis results in output channel
- */
-function displayAnalysisResults(result: pythonRunner.AnalysisResult) {
-    outputChannel.appendLine(`\nFile: ${result.file}`);
-    outputChannel.appendLine(`Total Functions: ${result.functions.length}`);
-    outputChannel.appendLine(`Average Complexity: ${result.avg_complexity.toFixed(2)}`);
-    outputChannel.appendLine(`Maximum Complexity: ${result.max_complexity}`);
-
-    // Categorize functions
-    const critical = result.functions.filter(f => f.complexity > 15);
-    const warning = result.functions.filter(f => f.complexity >= 9 && f.complexity <= 15);
-    const good = result.functions.filter(f => f.complexity < 9);
-
-    if (critical.length > 0) {
-        outputChannel.appendLine(`\n🔴 CRITICAL (Complexity > 15): ${critical.length} function(s)`);
-        critical.forEach(func => {
-            outputChannel.appendLine(`  Line ${func.line}: ${func.name} - Complexity: ${func.complexity}`);
-        });
-    }
-
-    if (warning.length > 0) {
-        outputChannel.appendLine(`\n🟡 WARNING (Complexity 9-15): ${warning.length} function(s)`);
-        warning.forEach(func => {
-            outputChannel.appendLine(`  Line ${func.line}: ${func.name} - Complexity: ${func.complexity}`);
-        });
-    }
-
-    if (good.length > 0) {
-        outputChannel.appendLine(`\n✅ GOOD (Complexity < 9): ${good.length} function(s)`);
-        good.forEach(func => {
-            outputChannel.appendLine(`  Line ${func.line}: ${func.name} - Complexity: ${func.complexity}`);
-        });
-    }
-
-    outputChannel.appendLine('\n' + '='.repeat(80));
-}
-
-/**
- * Update status bar with analysis result
- */
-function updateStatusBarWithResult(result: pythonRunner.AnalysisResult) {
-    const avgComplexity = result.avg_complexity;
-    const maxComplexity = result.max_complexity;
-
-    let color: string;
-    let icon: string;
-
-    if (maxComplexity > 15) {
-        color = 'statusBarItem.errorBackground';
-        icon = '🔴';
-    } else if (avgComplexity > 8) {
-        color = 'statusBarItem.warningBackground';
-        icon = '🟡';
-    } else {
-        color = 'statusBarItem.background';
-        icon = '✅';
-    }
-
-    statusBarItem.text = `${icon} Complexity: ${avgComplexity.toFixed(1)}`;
-    statusBarItem.backgroundColor = new vscode.ThemeColor(color);
-    statusBarItem.show();
-}
-
-/**
- * Get refactoring suggestions for current function
- */
-async function suggestRefactoring() {
-    const editor = vscode.window.activeTextEditor;
-
-    if (!editor) {
-        vscode.window.showErrorMessage('No active editor found');
-        return;
-    }
-
-    const document = editor.document;
-
-    if (document.languageId !== 'python') {
-        vscode.window.showErrorMessage('This command only works with Python files');
-        return;
-    }
-
-    // For now, show a message that this feature is coming soon
-    vscode.window.showInformationMessage(
-        'Refactoring suggestions feature coming soon! Use the CLI command for now: codecomplexity suggest <file> --function <name>'
+            service.clearCache();
+            codeLens.refresh();
+            for (const editor of vscode.window.visibleTextEditors) {
+                if (languageOf(editor.document)) {
+                    service.schedule(editor.document, 10);
+                } else {
+                    decorations.clear(editor);
+                    diagnostics.clear(editor.document.uri);
+                }
+            }
+        }),
     );
+
+    // ---- commands
+    const analyzeActive = async (): Promise<{ editor: vscode.TextEditor; uri: vscode.Uri } | undefined> => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            void vscode.window.showInformationMessage('Open a file in a supported language first (Python, Java, JavaScript, TypeScript, Go, Rust, C, C++, C#, Ruby, PHP).');
+            return undefined;
+        }
+        if (!languageOf(editor.document)) {
+            void vscode.window.showInformationMessage(`Complexity Guard does not analyse "${editor.document.languageId}" files. Supported: Python, Java, JavaScript, TypeScript, Go, Rust, C, C++, C#, Ruby, PHP.`);
+            return undefined;
+        }
+        await service.analyzeDocument(editor.document);
+        return { editor, uri: editor.document.uri };
+    };
+
+    const showReportFor = async (uri: vscode.Uri, focus?: { name: string; startLine: number; suggestionId?: string }): Promise<void> => {
+        const document = await vscode.workspace.openTextDocument(uri);
+        const analysis = service.getCached(uri) ?? (await service.analyzeDocument(document));
+        if (!analysis) {
+            void vscode.window.showInformationMessage('This file cannot be analysed (unsupported language or too large).');
+            return;
+        }
+        ReportPanel.show(context.extensionUri, { kind: 'file', uri, analysis, focus });
+    };
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('codecomplexity.analyzeFile', async () => {
+            const target = await analyzeActive();
+            if (target) {
+                await showReportFor(target.uri);
+            }
+        }),
+        vscode.commands.registerCommand('codecomplexity.showReport', async () => {
+            const target = await analyzeActive();
+            if (target) {
+                await showReportFor(target.uri);
+            }
+        }),
+        vscode.commands.registerCommand('codecomplexity.showReportFor', async (uri: unknown) => {
+            if (uri instanceof vscode.Uri) {
+                await showReportFor(uri);
+            }
+        }),
+        vscode.commands.registerCommand('codecomplexity.showSuggestionsPanel', async (uriString: unknown, functionName: unknown, startLine: unknown, suggestionId?: unknown) => {
+            const uri = typeof uriString === 'string' ? safeParse(uriString) : vscode.window.activeTextEditor?.document.uri;
+            if (!uri) {
+                return;
+            }
+            const focus = typeof functionName === 'string' && typeof startLine === 'number' ? { name: functionName, startLine, suggestionId: typeof suggestionId === 'string' ? suggestionId : undefined } : undefined;
+            await showReportFor(uri, focus);
+        }),
+        vscode.commands.registerCommand('codecomplexity.showBreakdown', async (uriString: unknown, functionName: unknown, startLine: unknown) => {
+            await vscode.commands.executeCommand('codecomplexity.showSuggestionsPanel', uriString, functionName, startLine);
+        }),
+        vscode.commands.registerCommand('codecomplexity.ignoreWarning', async (uriString: unknown, startLine: unknown) => {
+            const uri = typeof uriString === 'string' ? safeParse(uriString) : vscode.window.activeTextEditor?.document.uri;
+            if (!uri) {
+                return;
+            }
+            const document = await vscode.workspace.openTextDocument(uri);
+            const languageId = languageOf(document);
+            if (!languageId) {
+                return;
+            }
+            const line = typeof startLine === 'number' ? startLine : vscode.window.activeTextEditor?.selection.active.line ?? 0;
+            await ignoreFunction(uri, line, getSpec(languageId).lineComment);
+        }),
+        vscode.commands.registerCommand('codecomplexity.configureThreshold', async () => {
+            await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:Kishan-aicodeguard.codecomplexity');
+        }),
+        vscode.commands.registerCommand('codecomplexity.toggleCodeLens', async () => {
+            const cfg = vscode.workspace.getConfiguration(CONFIG_SECTION);
+            const current = cfg.get<boolean>('showCodeLens', true);
+            await cfg.update('showCodeLens', !current, vscode.ConfigurationTarget.Global);
+            void vscode.window.showInformationMessage(`Inline complexity summaries ${!current ? 'enabled' : 'disabled'}.`);
+        }),
+        vscode.commands.registerCommand('codecomplexity.explainMetrics', async () => {
+            const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content: buildMetricsExplanation().value });
+            await vscode.commands.executeCommand('markdown.showPreview', doc.uri);
+        }),
+        vscode.commands.registerCommand('codecomplexity.refreshView', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && languageOf(editor.document)) {
+                service.forget(editor.document.uri);
+                service.schedule(editor.document, 10);
+            }
+            tree.refresh();
+        }),
+        vscode.commands.registerCommand('codecomplexity.revealLine', async (uriString: unknown, line: unknown) => {
+            if (typeof uriString === 'string' && typeof line === 'number') {
+                await revealLine(uriString, line);
+            }
+        }),
+        vscode.commands.registerCommand('codecomplexity.analyzeWorkspace', async () => {
+            if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+                void vscode.window.showInformationMessage('Open a folder or workspace first.');
+                return;
+            }
+            const report = await vscode.window.withProgress(
+                { location: vscode.ProgressLocation.Notification, title: 'Complexity Guard: analysing workspace', cancellable: true },
+                (progress, token) => scanWorkspace(service, progress, token),
+            );
+            ReportPanel.show(context.extensionUri, { kind: 'workspace', report });
+        }),
+        vscode.commands.registerCommand('codecomplexity.reportIssue', async () => {
+            await vscode.env.openExternal(vscode.Uri.parse('https://github.com/kdewasi/Code_complexity_guard/issues/new'));
+        }),
+    );
+
+    log.appendLine('Complexity Guard activated (local analysis, no network access).');
+    onEditor(vscode.window.activeTextEditor);
+    for (const editor of vscode.window.visibleTextEditors) {
+        if (languageOf(editor.document)) {
+            service.schedule(editor.document, 50);
+        }
+    }
 }
 
-/**
- * This method is called when the extension is deactivated.
- */
-export function deactivate() {
-    console.log('AI Code Quality Guard extension is now deactivated');
-
-    if (analysisTimeout) {
-        clearTimeout(analysisTimeout);
+function safeParse(s: string): vscode.Uri | undefined {
+    try {
+        return vscode.Uri.parse(s, true);
+    } catch {
+        return undefined;
     }
+}
 
-    if (outputChannel) {
-        outputChannel.dispose();
-    }
-
-    if (statusBarItem) {
-        statusBarItem.dispose();
-    }
-
-    if (decorationManager) {
-        decorationManager.dispose();
-    }
-
-    if (diagnosticCollection) {
-        diagnosticCollection.dispose();
-    }
+export function deactivate(): void {
+    // Disposables registered on the context are cleaned up by VS Code.
 }

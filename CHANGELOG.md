@@ -1,146 +1,49 @@
 # Changelog
 
-All notable changes to the "AI Code Quality Guard" extension will be documented in this file.
+All notable changes to **Code Complexity Guard** are documented here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [1.0.0] - 2026-10-02
+
+A complete rewrite. The extension no longer needs an AI API key, a Python installation or any external process.
+
+### Added
+- **12 languages**: Python, Java, JavaScript, TypeScript, JSX/TSX, Go, Rust, C, C++, C#, Ruby and PHP, each parsed with its official tree-sitter grammar (bundled as WebAssembly).
+- **Estimated Big-O time and space** per function, derived from loop structure, loop-variable updates (`log n`, `√n`, constant ranges), known library costs, recursion recurrences (exponential, divide-and-conquer, structural, memoized) and same-file call graphs. Every estimate lists its evidence and a confidence level.
+- **Cognitive complexity** (SonarSource rules) next to cyclomatic complexity, plus nesting depth, size and parameter count.
+- **Grades A–D** with a plain-language verdict for every function and for the file.
+- **17 pattern detectors** with language-specific before/after snippets: linear search in a loop, pair search in nested loops, string concatenation in a loop, exponential recursion, front removal/insertion in a loop, sorting in a loop, linear call in a loop condition, copies and regex compilation in loops, deep loop nesting, long if/else chains, deep nesting, validation chains, complex conditions, too many parameters, long functions, empty catch blocks and high cyclomatic complexity.
+- **New UI**: CodeLens summaries above every function, rich hovers with evidence, grade gutter icons, Problems-panel diagnostics with quick fixes, a *Complexity Guard* activity-bar view listing functions worst-first, a redesigned Complexity Report dashboard, a workspace-wide scan with hot spots, a status-bar grade and a Get Started walkthrough.
+- **Real-time analysis while typing** (debounced), including unsaved files; analysis runs in a worker thread so large files never block the editor.
+- **CLI** (`dist/cli.js`) with JSON output and `--fail-on` for CI.
+- `codecomplexity: ignore-file` marker; `codecomplexity: ignore` now works with any comment syntax.
+- Support for untrusted and virtual workspaces.
+
+### Changed
+- Display name is now **Code Complexity Guard**. The extension identifier, settings namespace (`codecomplexity.*`) and command identifiers are unchanged, so existing settings keep working.
+- Cyclomatic thresholds keep their defaults (8 / 15); cognitive thresholds (15 / 25) are new settings.
+- The extension is bundled with esbuild into a single file plus the grammar binaries; the package no longer contains Python sources or unused dependencies.
+
+### Removed
+- The Claude / Anthropic SDK integration, the `codecomplexity.apiKey`, `aiModel`, `maxTokens` and `confirmBeforeRefactor` settings, and all network access.
+- The Python engine, the `codecomplexity.pythonPath` setting, the "Install Python package" command and the shell execution it required.
+
+### Fixed
+- Command injection risk from passing file paths and the configured Python path through a shell.
+- Webview content was rendered without a Content-Security-Policy and without escaping; the new report uses a strict CSP, nonces and full escaping.
+- The `Report Issue` command was registered but not declared in the manifest.
+- The extension icon was a JPEG with a `.png` extension.
+- Analysis of unsaved buffers, files outside the workspace and files on virtual file systems.
+
+## [0.1.3] - 2026-01-23
+
+### Added
+- Bundled Python engine (no `pip install` needed) and a "Report Issue" command.
 
 ## [0.1.0] - 2026-01-23
 
-### Added
+- Initial release: cyclomatic complexity for Python via an external Python package, optional AI refactoring.
 
-#### Core Features
-- **Real-time complexity analysis** for Python files
-- **Cyclomatic complexity calculation** using AST parsing
-- **Visual decorations** with color-coded complexity indicators (green/yellow/red)
-- **Gutter icons** showing complexity scores at a glance
-- **Hover tooltips** with detailed complexity breakdown
-
-#### Code Actions (Light Bulb)
-- **💡 Show Refactoring Suggestions** - Opens WebView panel with AI-powered recommendations
-- **📊 View Complexity Breakdown** - Displays decision points in output channel
-- **🚫 Ignore This Warning** - Adds `# codecomplexity: ignore` comment
-- **⚙️ Configure Complexity Threshold** - Opens settings for threshold adjustment
-
-#### AI-Powered Refactoring
-- **Claude AI integration** for automatic code refactoring
-- **Side-by-side diff viewer** for reviewing changes before applying
-- **Safety validation** ensures refactored code maintains functionality
-- **Complexity verification** guarantees improvement after refactoring
-- **Configurable AI models** (Claude 3.5 Sonnet, Opus, Sonnet)
-
-#### Problems Panel Integration
-- **Diagnostic collection** showing all complexity issues
-- **Warning/Error severity levels** based on configurable thresholds
-- **Click-to-navigate** to problematic functions
-- **Quick fixes** available via right-click context menu
-
-#### Pattern Detection
-- **Validation chain detection** (3+ consecutive validation checks)
-- **Nested loop detection** for performance optimization opportunities
-- **Complex error handling** (3+ except handlers)
-- **Long if/elif chains** (4+ branches) suggesting strategy pattern
-
-#### Configuration
-- **Python path configuration** for custom Python interpreters
-- **Warning threshold** (default: 8) for moderate complexity
-- **Critical threshold** (default: 15) for high complexity
-- **Real-time analysis toggle** for performance control
-- **API key configuration** for Claude AI (optional)
-- **AI model selection** with multiple Claude versions
-- **Token limit configuration** for API requests
-- **Confirmation prompts** before AI API calls
-
-#### Commands
-- `codecomplexity.analyzeFile` - Analyze current Python file
-- `codecomplexity.suggestRefactoring` - Get refactoring suggestions
-- `codecomplexity.installPackage` - Install Python package helper
-- `codecomplexity.showSuggestionsPanel` - Open suggestion WebView
-- `codecomplexity.showBreakdown` - Show complexity breakdown
-- `codecomplexity.ignoreWarning` - Add ignore comment
-- `codecomplexity.configureThreshold` - Open threshold settings
-
-#### Documentation
-- Comprehensive README with examples and screenshots
-- Quick start guide for immediate usage
-- Configuration guide with all settings explained
-- Troubleshooting section for common issues
-- FAQ covering typical user questions
-- API key setup instructions
-- Complexity explanation and guidelines
-
-#### Testing
-- Extension activation tests
-- Command registration verification
-- Configuration change handling
-- Python file analysis tests
-- Code action provider tests
-- Mock API tests (no real API keys)
-- Error handling and edge case tests
-
-### Technical Details
-- **Language Support**: Python 3.8+
-- **VS Code Version**: 1.80.0+
-- **Dependencies**: 
-  - `@anthropic-ai/sdk` for Claude AI integration
-  - `codecomplexity` Python package for analysis
-- **Architecture**:
-  - TypeScript-based extension
-  - Python CLI integration via child process
-  - WebView panels for rich UI
-  - Diagnostic collection for Problems panel
-  - Code action provider for light bulb features
-
-### Performance
-- **Debounced analysis** to prevent excessive computation
-- **Cached results** for improved responsiveness
-- **Async operations** to prevent UI blocking
-- **Configurable real-time analysis** for resource control
-
-### Security
-- **API key storage** in VS Code secure settings
-- **Environment variable support** for API keys
-- **No code sent to cloud** except during AI refactoring
-- **User confirmation** before API calls (configurable)
-
-### Known Limitations
-- Python-only support (other languages planned for future)
-- Requires Python and codecomplexity package installation
-- AI refactoring requires Claude API key and internet connection
-- Analysis accuracy depends on Python AST parsing
-
-### Changed
-- N/A (initial release)
-
-### Deprecated
-- N/A (initial release)
-
-### Removed
-- N/A (initial release)
-
-### Fixed
-- N/A (initial release)
-
-### Security
-- N/A (initial release)
-
----
-
-## [Unreleased]
-
-### Planned Features
-- JavaScript/TypeScript support
-- Java support
-- Team complexity dashboards
-- Historical complexity tracking
-- Custom pattern detection
-- CI/CD pipeline integration
-- Complexity trend visualization
-- Multi-file analysis
-- Batch refactoring
-- Custom refactoring rules
-
----
-
-[0.1.0]: https://github.com/yourusername/codecomplexity/releases/tag/v0.1.0
-[Unreleased]: https://github.com/yourusername/codecomplexity/compare/v0.1.0...HEAD
+[1.0.0]: https://github.com/kdewasi/Code_complexity_guard/releases/tag/v1.0.0
+[0.1.3]: https://github.com/kdewasi/Code_complexity_guard/commit/4440716
+[0.1.0]: https://github.com/kdewasi/Code_complexity_guard/commit/8155dc0

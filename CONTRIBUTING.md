@@ -1,240 +1,73 @@
-# Contributing to AI Code Quality Guard
+# Contributing to Code Complexity Guard
 
-Thank you for your interest in contributing to AI Code Quality Guard! This document provides guidelines and instructions for contributing.
+Thanks for helping! This document explains how the project is laid out, how to run it, and how to add a language or a suggestion.
 
-## Code of Conduct
+## Setup
 
-By participating in this project, you agree to maintain a respectful and inclusive environment for all contributors.
-
-## How to Contribute
-
-### Reporting Bugs
-
-Before creating a bug report, please check existing issues to avoid duplicates.
-
-**When reporting a bug, include:**
-- VS Code version
-- Python version
-- Extension version
-- Steps to reproduce
-- Expected behavior
-- Actual behavior
-- Screenshots (if applicable)
-- Error messages from Output panel
-
-**Submit bugs at:** https://github.com/yourusername/codecomplexity/issues
-
-### Suggesting Features
-
-We welcome feature suggestions! Please:
-- Check if the feature has already been suggested
-- Clearly describe the feature and its benefits
-- Provide examples of how it would be used
-- Consider implementation complexity
-
-### Pull Requests
-
-1. **Fork the repository**
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Make your changes**
-4. **Test thoroughly**
-5. **Commit with clear messages** (`git commit -m 'Add amazing feature'`)
-6. **Push to your fork** (`git push origin feature/amazing-feature`)
-7. **Open a Pull Request**
-
-## Development Setup
-
-### Prerequisites
-
-- Node.js 18+ and npm
-- Python 3.8+
-- VS Code 1.80.0+
-- Git
-
-### Setup Steps
+Requirements: Node.js 18+ and npm. Nothing else (no Python, no native build tools).
 
 ```bash
-# Clone your fork
-git clone https://github.com/yourusername/codecomplexity.git
-cd codecomplexity
-
-# Install Python package in development mode
-cd CCG
-pip install -e .
-pip install -r requirements-dev.txt
-
-# Install VS Code extension dependencies
-cd ../codecomplexity-vscode
+git clone https://github.com/kdewasi/Code_complexity_guard.git
+cd Code_complexity_guard
 npm install
-
-# Compile TypeScript
-npm run compile
+npm run build      # type-check + bundle extension, worker and CLI into dist/
+npm test           # compiles to out/ and runs the engine unit tests with mocha
 ```
 
-### Running the Extension
+Press `F5` in VS Code to launch an Extension Development Host with the extension loaded.
 
-1. Open `codecomplexity-vscode` folder in VS Code
-2. Press `F5` to launch Extension Development Host
-3. Open a Python file to test
-
-### Running Tests
-
-```bash
-# Python package tests
-cd CCG
-pytest
-
-# VS Code extension tests
-cd codecomplexity-vscode
-npm test
-```
-
-## Code Style
-
-### TypeScript
-
-- Use TypeScript strict mode
-- Follow VS Code extension best practices
-- Use async/await for asynchronous operations
-- Add JSDoc comments for public APIs
-- Use meaningful variable names
-
-**Example:**
-```typescript
-/**
- * Analyzes a Python file for complexity.
- * @param filePath Path to the Python file
- * @returns Analysis results with complexity metrics
- */
-async function analyzeFile(filePath: string): Promise<AnalysisResult> {
-    // Implementation
-}
-```
-
-### Python
-
-- Follow PEP 8 style guide
-- Use type hints
-- Add docstrings for all public functions
-- Use meaningful variable names
-- Keep functions focused and small
-
-**Example:**
-```python
-def calculate_complexity(node: ast.FunctionDef) -> tuple[int, list[DecisionPoint]]:
-    """
-    Calculate cyclomatic complexity for a function.
-    
-    Args:
-        node: AST node representing the function
-        
-    Returns:
-        Tuple of (complexity score, list of decision points)
-    """
-    # Implementation
-```
-
-### Formatting
-
-```bash
-# Python
-black src/
-flake8 src/
-
-# TypeScript
-# VS Code will auto-format on save if configured
-```
-
-## Project Structure
+## Layout
 
 ```
-codecomplexity/
-├── CCG/                          # Python package
-│   ├── src/codecomplexity/
-│   │   ├── analyzers/           # Complexity analysis
-│   │   ├── refactoring/         # Pattern detection
-│   │   ├── cli.py               # Command-line interface
-│   │   └── tests/               # Python tests
-│   └── setup.py
-│
-└── codecomplexity-vscode/       # VS Code extension
-    ├── src/
-    │   ├── extension.ts         # Main extension
-    │   ├── codeActionProvider.ts
-    │   ├── suggestionPanel.ts
-    │   ├── aiRefactor.ts
-    │   └── ...
-    ├── test/                    # Extension tests
-    └── package.json
+src/
+  engine/                 The analyser. No dependency on VS Code.
+    parser.ts             Loads web-tree-sitter and the grammar .wasm files from ../wasm
+    languages/            One spec per language: which node types are functions, loops, branches, calls …
+    walker.ts             Walks a function body and collects facts (metrics, loops, calls, recursion …)
+    complexity.ts         Folds recursion into the Big-O estimate; resolves same-file call graphs
+    suggestions.ts        Pattern detectors → suggestions with before/after snippets
+    rating.ts             Grades and plain-language verdicts
+    analyzer.ts           Public entry point: source text → FileAnalysis
+  vscode/                 Editor integration: service + worker, CodeLens, hover, diagnostics, report …
+  extension.ts            Activation and command wiring
+  worker.ts               Worker-thread entry point (runs the engine off the main thread)
+  cli.ts                  Command-line interface
+wasm/                     tree-sitter runtime + grammar binaries (refresh with `npm run update-wasm`)
+test/unit/                Engine tests (plain mocha, no VS Code required)
+media/                    Icons and walkthrough pages
 ```
 
-## Testing Guidelines
+## Adding a language
 
-### Python Tests
+1. Get a tree-sitter grammar that ships a `.wasm` file in its npm package, add it to `scripts/update-wasm.js`, run `npm run update-wasm`.
+2. Create `src/engine/languages/<lang>.ts` by copying the closest existing spec. The fields are documented in `spec.ts`. Use a quick script with `web-tree-sitter` to print the syntax tree of a sample file to learn the node and field names.
+3. Register it in `src/engine/languages/index.ts` (engine id, VS Code language id, file extensions).
+4. Add the VS Code language id to `package.json` (`activationEvents`, `enabledLanguages` enum) and to `SUPPORTED_VSCODE_LANGUAGES` in `src/vscode/config.ts`.
+5. Add a test file under `test/unit/` covering functions, loops, branches, recursion and at least one suggestion.
 
-- Test all complexity calculations
-- Test pattern detection
-- Test edge cases
-- Aim for 90%+ coverage
+## Adding a suggestion
 
-### Extension Tests
+1. Collect the fact in `walker.ts` (keep it plain data; no tree-sitter nodes may survive the walk).
+2. Turn it into a `Suggestion` in `suggestions.ts`: say what is happening, why it matters, what to do, and the effect. Add language snippets to the specs if a before/after helps.
+3. Add a test. Suggestions are part of the grade, so keep severities honest: `critical` for things that are always a bug at scale, `warning` for likely problems, `info` for readability.
 
-- Test extension activation
-- Test all commands
-- Test configuration changes
-- Test error handling
-- Mock external dependencies (API calls)
+## Style
 
-## Documentation
+- TypeScript strict mode, `npm run typecheck` must be clean.
+- Keep the engine free of `vscode` imports so the CLI and tests keep working.
+- Plain language in anything a user reads. Explain *why*, show *what to do*.
 
-When adding features:
-- Update README.md
-- Update CHANGELOG.md
-- Add JSDoc/docstrings
-- Update configuration docs if adding settings
-- Add examples if applicable
-
-## Commit Messages
-
-Use clear, descriptive commit messages:
+## Commit messages
 
 ```
-feat: Add support for JavaScript analysis
-fix: Correct complexity calculation for nested loops
-docs: Update API key setup instructions
-test: Add tests for code action provider
-refactor: Simplify decoration manager logic
+feat: detect binary-search loops in Rust
+fix: do not count else-if as nested for cognitive complexity
+docs: explain confidence levels
+test: add PHP match expression cases
 ```
 
-**Prefixes:**
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation
-- `test:` Tests
-- `refactor:` Code refactoring
-- `perf:` Performance improvement
-- `chore:` Maintenance tasks
+## Release process
 
-## Release Process
-
-1. Update version in `package.json`
-2. Update `CHANGELOG.md`
-3. Create git tag (`git tag v0.2.0`)
-4. Push tag (`git push origin v0.2.0`)
-5. Create GitHub release
-6. Publish to VS Code Marketplace (`vsce publish`)
-7. Publish Python package (`python setup.py sdist upload`)
-
-## Questions?
-
-- Open a discussion on GitHub
-- Check existing documentation
-- Review closed issues for similar questions
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
-
----
-
-**Thank you for contributing to AI Code Quality Guard!** 🎉
+1. Update `version` in `package.json` and add a section to `CHANGELOG.md`.
+2. `npm run build && npm test && npm run package` must succeed.
+3. Tag and push: `git tag v1.2.3 && git push origin v1.2.3`. The *Publish Extension* workflow builds, tests, attaches the `.vsix` to a GitHub Release and publishes to the Marketplace when the `VSCE_PAT` secret is configured (see [PUBLISHING_GUIDE.md](PUBLISHING_GUIDE.md)).

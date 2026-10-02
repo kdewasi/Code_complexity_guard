@@ -1,150 +1,407 @@
 {
     "name": "codecomplexity",
-    "displayName": "AI Code Quality Guard",
-    "description": "Real-time code complexity analysis and AI-powered refactoring for Python",
-    "version": "0.1.3",
+    "displayName": "Code Complexity Guard",
+    "description": "Offline code complexity analysis for 12 languages: cyclomatic and cognitive complexity, estimated Big-O time and space, plain-language verdicts and concrete optimization suggestions. No AI, no API key, no Python required.",
+    "version": "1.0.0",
     "publisher": "Kishan-aicodeguard",
     "author": {
-        "name": "Your Name"
+        "name": "Kishan Dewasi"
     },
     "license": "MIT",
     "icon": "icon.png",
+    "galleryBanner": {
+        "color": "#1e1e2e",
+        "theme": "dark"
+    },
     "engines": {
         "vscode": "^1.80.0"
     },
     "categories": [
         "Linters",
         "Programming Languages",
-        "Machine Learning"
+        "Visualization",
+        "Education"
     ],
     "keywords": [
-        "python",
         "complexity",
-        "refactoring",
-        "code quality",
-        "ai",
-        "linter",
+        "big-o",
         "cyclomatic complexity",
-        "code analysis",
-        "claude",
-        "anthropic"
+        "cognitive complexity",
+        "code quality",
+        "performance",
+        "refactoring",
+        "python",
+        "java",
+        "javascript",
+        "typescript",
+        "go",
+        "rust",
+        "c",
+        "c++",
+        "c#",
+        "ruby",
+        "php",
+        "linter",
+        "tree-sitter"
     ],
     "activationEvents": [
-        "onLanguage:python"
+        "onLanguage:python",
+        "onLanguage:java",
+        "onLanguage:javascript",
+        "onLanguage:javascriptreact",
+        "onLanguage:typescript",
+        "onLanguage:typescriptreact",
+        "onLanguage:go",
+        "onLanguage:rust",
+        "onLanguage:c",
+        "onLanguage:cpp",
+        "onLanguage:csharp",
+        "onLanguage:ruby",
+        "onLanguage:php",
+        "onView:codecomplexity.functionsView",
+        "onCommand:codecomplexity.analyzeWorkspace"
     ],
-    "main": "./out/src/extension.js",
+    "main": "./dist/extension.js",
+    "capabilities": {
+        "untrustedWorkspaces": {
+            "supported": true,
+            "description": "Analysis runs entirely inside the extension host on the text of open files. No code is executed, written to disk, or sent anywhere."
+        },
+        "virtualWorkspaces": true
+    },
     "repository": {
         "type": "git",
-        "url": "https://github.com/yourusername/codecomplexity.git"
+        "url": "https://github.com/kdewasi/Code_complexity_guard.git"
     },
     "bugs": {
-        "url": "https://github.com/yourusername/codecomplexity/issues"
+        "url": "https://github.com/kdewasi/Code_complexity_guard/issues"
     },
-    "homepage": "https://github.com/yourusername/codecomplexity#readme",
+    "homepage": "https://github.com/kdewasi/Code_complexity_guard#readme",
     "contributes": {
         "commands": [
             {
                 "command": "codecomplexity.analyzeFile",
-                "title": "AI Code Quality Guard: Analyze current file"
+                "title": "Analyze Current File",
+                "category": "Complexity Guard",
+                "icon": "$(pulse)"
             },
             {
-                "command": "codecomplexity.suggestRefactoring",
-                "title": "AI Code Quality Guard: Get refactoring suggestions"
+                "command": "codecomplexity.showReport",
+                "title": "Open Complexity Report",
+                "category": "Complexity Guard",
+                "icon": "$(graph)"
             },
             {
-                "command": "codecomplexity.installPackage",
-                "title": "AI Code Quality Guard: Install Python package"
+                "command": "codecomplexity.analyzeWorkspace",
+                "title": "Analyze Whole Workspace",
+                "category": "Complexity Guard",
+                "icon": "$(search)"
             },
             {
                 "command": "codecomplexity.showSuggestionsPanel",
-                "title": "AI Code Quality Guard: Show suggestions panel"
+                "title": "Show Suggestions for Function",
+                "category": "Complexity Guard"
             },
             {
                 "command": "codecomplexity.showBreakdown",
-                "title": "AI Code Quality Guard: View complexity breakdown"
+                "title": "Show Complexity Breakdown",
+                "category": "Complexity Guard"
             },
             {
                 "command": "codecomplexity.ignoreWarning",
-                "title": "AI Code Quality Guard: Ignore this warning"
+                "title": "Ignore This Function",
+                "category": "Complexity Guard"
             },
             {
                 "command": "codecomplexity.configureThreshold",
-                "title": "AI Code Quality Guard: Configure threshold"
+                "title": "Configure Thresholds",
+                "category": "Complexity Guard",
+                "icon": "$(settings-gear)"
+            },
+            {
+                "command": "codecomplexity.toggleCodeLens",
+                "title": "Toggle Inline Summaries (CodeLens)",
+                "category": "Complexity Guard"
+            },
+            {
+                "command": "codecomplexity.explainMetrics",
+                "title": "What Do These Numbers Mean?",
+                "category": "Complexity Guard",
+                "icon": "$(question)"
+            },
+            {
+                "command": "codecomplexity.refreshView",
+                "title": "Refresh",
+                "category": "Complexity Guard",
+                "icon": "$(refresh)"
+            },
+            {
+                "command": "codecomplexity.reportIssue",
+                "title": "Report an Issue",
+                "category": "Complexity Guard"
+            }
+        ],
+        "menus": {
+            "commandPalette": [
+                {
+                    "command": "codecomplexity.showSuggestionsPanel",
+                    "when": "false"
+                },
+                {
+                    "command": "codecomplexity.showBreakdown",
+                    "when": "false"
+                },
+                {
+                    "command": "codecomplexity.ignoreWarning",
+                    "when": "false"
+                },
+                {
+                    "command": "codecomplexity.refreshView",
+                    "when": "false"
+                }
+            ],
+            "editor/context": [
+                {
+                    "command": "codecomplexity.showReport",
+                    "group": "z_complexity@1",
+                    "when": "codecomplexity.supportedLanguage"
+                }
+            ],
+            "editor/title": [
+                {
+                    "command": "codecomplexity.showReport",
+                    "group": "navigation@50",
+                    "when": "codecomplexity.supportedLanguage"
+                }
+            ],
+            "view/title": [
+                {
+                    "command": "codecomplexity.showReport",
+                    "when": "view == codecomplexity.functionsView",
+                    "group": "navigation@1"
+                },
+                {
+                    "command": "codecomplexity.analyzeWorkspace",
+                    "when": "view == codecomplexity.functionsView",
+                    "group": "navigation@2"
+                },
+                {
+                    "command": "codecomplexity.refreshView",
+                    "when": "view == codecomplexity.functionsView",
+                    "group": "navigation@3"
+                },
+                {
+                    "command": "codecomplexity.explainMetrics",
+                    "when": "view == codecomplexity.functionsView",
+                    "group": "navigation@4"
+                }
+            ]
+        },
+        "viewsContainers": {
+            "activitybar": [
+                {
+                    "id": "codecomplexity",
+                    "title": "Complexity Guard",
+                    "icon": "media/activity-icon.svg"
+                }
+            ]
+        },
+        "views": {
+            "codecomplexity": [
+                {
+                    "id": "codecomplexity.functionsView",
+                    "name": "Functions",
+                    "contextualTitle": "Complexity Guard",
+                    "icon": "media/activity-icon.svg"
+                }
+            ]
+        },
+        "viewsWelcome": [
+            {
+                "view": "codecomplexity.functionsView",
+                "contents": "Open a file in a supported language (Python, Java, JavaScript, TypeScript, Go, Rust, C, C++, C#, Ruby or PHP) to see every function graded here.\n\n[Open Complexity Report](command:codecomplexity.showReport)\n\n[What do these numbers mean?](command:codecomplexity.explainMetrics)"
             }
         ],
         "configuration": {
-            "title": "AI Code Quality Guard",
+            "title": "Complexity Guard",
             "properties": {
-                "codecomplexity.pythonPath": {
-                    "type": "string",
-                    "default": "python",
-                    "description": "Path to Python interpreter"
+                "codecomplexity.enableRealtime": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Re-analyze the file automatically while you type (debounced). When off, analysis runs on save and on demand."
+                },
+                "codecomplexity.analysisDelay": {
+                    "type": "number",
+                    "default": 400,
+                    "minimum": 100,
+                    "maximum": 5000,
+                    "description": "Milliseconds to wait after the last keystroke before re-analyzing."
                 },
                 "codecomplexity.warningThreshold": {
                     "type": "number",
                     "default": 8,
-                    "description": "Complexity warning threshold"
+                    "minimum": 1,
+                    "description": "Cyclomatic complexity above this value marks a function as 'Needs attention' (yellow)."
                 },
                 "codecomplexity.criticalThreshold": {
                     "type": "number",
                     "default": 15,
-                    "description": "Complexity critical threshold"
+                    "minimum": 1,
+                    "description": "Cyclomatic complexity above this value marks a function as 'Poor' (red)."
                 },
-                "codecomplexity.enableRealtime": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Enable real-time complexity analysis"
-                },
-                "codecomplexity.apiKey": {
-                    "type": "string",
-                    "default": "",
-                    "description": "Claude API key for AI-powered refactoring (or set ANTHROPIC_API_KEY environment variable)"
-                },
-                "codecomplexity.aiModel": {
-                    "type": "string",
-                    "default": "claude-3-5-sonnet-20241022",
-                    "description": "Claude model to use for refactoring",
-                    "enum": [
-                        "claude-3-5-sonnet-20241022",
-                        "claude-3-opus-20240229",
-                        "claude-3-sonnet-20240229"
-                    ]
-                },
-                "codecomplexity.maxTokens": {
+                "codecomplexity.cognitiveWarningThreshold": {
                     "type": "number",
-                    "default": 4000,
-                    "description": "Maximum tokens per AI refactoring request"
+                    "default": 15,
+                    "minimum": 1,
+                    "description": "Cognitive complexity above this value marks a function as 'Needs attention'."
                 },
-                "codecomplexity.confirmBeforeRefactor": {
+                "codecomplexity.cognitiveCriticalThreshold": {
+                    "type": "number",
+                    "default": 25,
+                    "minimum": 1,
+                    "description": "Cognitive complexity above this value marks a function as 'Poor'."
+                },
+                "codecomplexity.showCodeLens": {
                     "type": "boolean",
                     "default": true,
-                    "description": "Ask for confirmation before calling AI API"
+                    "description": "Show a one-line summary (grade, complexity, Big-O) above every function."
+                },
+                "codecomplexity.showDecorations": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Color the first line of each function and show a gutter icon according to its grade."
+                },
+                "codecomplexity.decorateHealthyFunctions": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Also mark functions that are in good shape (green). Turn off to only see problems."
+                },
+                "codecomplexity.showDiagnostics": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "List complexity problems and optimization suggestions in the Problems panel."
+                },
+                "codecomplexity.maxFileSizeKB": {
+                    "type": "number",
+                    "default": 1024,
+                    "minimum": 16,
+                    "description": "Files larger than this (in KB) are skipped to keep the editor responsive."
+                },
+                "codecomplexity.enabledLanguages": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "enum": [
+                            "python",
+                            "java",
+                            "javascript",
+                            "javascriptreact",
+                            "typescript",
+                            "typescriptreact",
+                            "go",
+                            "rust",
+                            "c",
+                            "cpp",
+                            "csharp",
+                            "ruby",
+                            "php"
+                        ]
+                    },
+                    "default": [
+                        "python",
+                        "java",
+                        "javascript",
+                        "javascriptreact",
+                        "typescript",
+                        "typescriptreact",
+                        "go",
+                        "rust",
+                        "c",
+                        "cpp",
+                        "csharp",
+                        "ruby",
+                        "php"
+                    ],
+                    "description": "Languages that are analyzed. Remove a language to switch the extension off for it."
+                },
+                "codecomplexity.workspaceExclude": {
+                    "type": "string",
+                    "default": "**/{node_modules,.git,dist,build,out,target,vendor,venv,.venv,__pycache__,bin,obj}/**",
+                    "description": "Glob of files to skip when analyzing the whole workspace."
+                },
+                "codecomplexity.workspaceMaxFiles": {
+                    "type": "number",
+                    "default": 1500,
+                    "minimum": 10,
+                    "description": "Maximum number of files scanned by 'Analyze Whole Workspace'."
                 }
             }
-        }
+        },
+        "walkthroughs": [
+            {
+                "id": "codecomplexity.gettingStarted",
+                "title": "Get started with Complexity Guard",
+                "description": "Learn how to read the grades, Big-O estimates and suggestions in two minutes.",
+                "steps": [
+                    {
+                        "id": "codecomplexity.step.open",
+                        "title": "Open any function",
+                        "description": "Open a Python, Java, JavaScript, TypeScript, Go, Rust, C, C++, C#, Ruby or PHP file. Every function gets a grade line above it.\n[Open the Complexity Report](command:codecomplexity.showReport)",
+                        "media": {
+                            "markdown": "media/walkthrough/step-open.md"
+                        }
+                    },
+                    {
+                        "id": "codecomplexity.step.read",
+                        "title": "Read the numbers",
+                        "description": "Cyclomatic = how many paths to test. Cognitive = how hard it is to follow. Big-O = how the run time grows with input size.\n[Explain the metrics](command:codecomplexity.explainMetrics)",
+                        "media": {
+                            "markdown": "media/walkthrough/step-read.md"
+                        }
+                    },
+                    {
+                        "id": "codecomplexity.step.fix",
+                        "title": "Apply a suggestion",
+                        "description": "Hover a yellow or red function, or press Ctrl+. on it, to see a concrete before/after fix.",
+                        "media": {
+                            "markdown": "media/walkthrough/step-fix.md"
+                        }
+                    },
+                    {
+                        "id": "codecomplexity.step.tune",
+                        "title": "Tune it to your team",
+                        "description": "Change thresholds, switch off CodeLens, or disable languages.\n[Open settings](command:codecomplexity.configureThreshold)",
+                        "media": {
+                            "markdown": "media/walkthrough/step-tune.md"
+                        }
+                    }
+                ]
+            }
+        ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "npm run build",
+        "build": "npm run typecheck && node esbuild.js --production",
         "compile": "tsc -p ./",
-        "watch": "tsc -watch -p ./",
-        "pretest": "npm run compile",
-        "test": "node ./out/test/runTest.js",
+        "watch": "node esbuild.js --watch",
+        "typecheck": "tsc -p ./ --noEmit",
+        "pretest": "npm run compile && node esbuild.js",
+        "test": "mocha \"out/test/unit/**/*.test.js\" --timeout 30000",
+        "cli": "node dist/cli.js",
         "package": "vsce package",
-        "publish": "vsce publish"
+        "publish": "vsce publish",
+        "update-wasm": "node scripts/update-wasm.js"
     },
     "devDependencies": {
-        "@types/chai": "^5.2.3",
-        "@types/glob": "^9.0.0",
         "@types/mocha": "^10.0.10",
-        "@types/node": "^18.0.0",
+        "@types/node": "^18.19.0",
         "@types/vscode": "^1.80.0",
-        "@vscode/test-electron": "^2.5.2",
-        "chai": "^6.2.2",
-        "glob": "^13.0.0",
+        "@vscode/vsce": "^3.3.2",
+        "esbuild": "^0.25.0",
         "mocha": "^11.7.5",
-        "typescript": "^5.0.0"
+        "typescript": "^5.6.0"
     },
     "dependencies": {
-        "@anthropic-ai/sdk": "^0.71.2"
+        "web-tree-sitter": "0.27.0"
     }
 }
