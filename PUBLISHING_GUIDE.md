@@ -12,14 +12,16 @@ Publisher: `Kishan-aicodeguard` · Extension id: `codecomplexity` · Marketplace
 
 1. In the GitHub repository go to **Settings → Secrets and variables → Actions → New repository secret**.
 2. Name: `VSCE_PAT`, value: the token.
-3. Push a version tag:
+3. Either push a version tag:
 
    ```bash
    git tag v1.0.0
    git push origin v1.0.0
    ```
 
-   The **Publish Extension** workflow (`.github/workflows/publish.yml`) builds, runs the unit tests, packages the `.vsix`, attaches it to a GitHub Release, and publishes to the Marketplace. If the secret is missing, everything except the Marketplace upload still happens and the job prints a reminder.
+   or open **Actions → Publish Extension → Run workflow**, pick the branch and enter the version (it must match `package.json`). The workflow creates the tag for you.
+
+   The **Publish Extension** workflow (`.github/workflows/publish.yml`) builds, runs the unit tests, packages the `.vsix`, creates a GitHub Release with the `.vsix` attached, and publishes to the Marketplace. If the secret is missing, everything except the Marketplace upload still happens and the job prints a reminder; add the secret and re-run the job to publish.
 
 ## Option B: publish from your machine
 

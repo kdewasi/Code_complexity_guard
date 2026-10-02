@@ -1,9 +1,18 @@
 name: Publish Extension
 
+# Runs when a version tag is pushed (git tag v1.2.3 && git push origin v1.2.3)
+# or when started by hand from the Actions tab ("Run workflow"), in which case
+# the tag is created from the selected branch by the release step.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (must match package.json), e.g. 1.0.0'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -30,14 +39,21 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: Check that the tag matches package.json
+      - name: Resolve the release version
+        id: version
         run: |
           PKG_VERSION=$(node -p "require('./package.json').version")
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "package.json version ($PKG_VERSION) does not match tag ($TAG_VERSION)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WANTED="${{ inputs.version }}"
+          else
+            WANTED="${GITHUB_REF_NAME#v}"
+          fi
+          if [ "$PKG_VERSION" != "$WANTED" ]; then
+            echo "package.json version ($PKG_VERSION) does not match the requested release ($WANTED)"
             exit 1
           fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$PKG_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Package
         run: npx vsce package --no-dependencies
@@ -45,8 +61,17 @@ jobs:
       - name: Create GitHub Release with the .vsix
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Code Complexity Guard ${{ steps.version.outputs.version }}
           files: '*.vsix'
           generate_release_notes: true
+          body: |
+            Install from the Marketplace: https://marketplace.visualstudio.com/items?itemName=Kishan-aicodeguard.codecomplexity
+
+            Or install the attached `.vsix`: `code --install-extension codecomplexity-${{ steps.version.outputs.version }}.vsix`
+
+            See CHANGELOG.md for details.
 
       - name: Publish to the VS Code Marketplace
         env:
