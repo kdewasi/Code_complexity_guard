@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and 
 ## [1.0.1] - 2026-10-02
 
 ### Changed
-- New logo: a shield holding the three grade bars (green, amber, red) on a navy tile. The vector source is in `media/logo.svg`.
+- New logo: a navy shield with light-blue and green angle brackets. The full-size image is in `media/logo.png`.
 
 ## [1.0.0] - 2026-10-02
 
