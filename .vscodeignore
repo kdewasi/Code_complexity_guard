@@ -1,68 +1,30 @@
-# Build and development files
+# Everything is bundled into dist/ by esbuild; ship only what runs.
 .vscode/**
 .vscode-test/**
+.github/**
 src/**
 test/**
+out/**
+scripts/**
 node_modules/**
 .gitignore
 .gitattributes
+.npmrc
+.mocharc.json
 tsconfig.json
-*.map
+esbuild.js
+*.vsix
+**/*.map
 
-# Documentation (keep only essential)
-!README.md
-!CHANGELOG.md
-!LICENSE
-*.md
-!README.md
-!CHANGELOG.md
+# Docs: keep README, CHANGELOG and LICENSE only.
+docs/**
+CONTRIBUTING.md
+PUBLISHING_GUIDE.md
 
-# Development files
-.eslintrc.json
-.prettierrc
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE files
-*.swp
-*.swo
-*~
-.idea/
-
-# Backup files
-*.backup
-extension.ts.backup
-
-# Test files
-test_*.py
-**/test/**
-**/*.test.ts
-**/*.test.js
-
-# Documentation (internal)
-INTEGRATION_NOTES.txt
-DELIVERABLES.md
-DOCUMENTATION_INDEX.md
-IMPLEMENTATION_STATUS.md
-QUICK_START.md
-README_STEP11.md
-START_HERE.md
-STEP_11_COMPLETE.md
-TEST_EXECUTION_REPORT.md
-TESTING.md
-
-# Keep only compiled output
-!out/src/**/*.js
-!out/src/**/*.js.map
-!python_src/**
-
-
-# Assets to keep
+# Keep the bundle, the parsers and the UI assets.
+!dist/extension.js
+!dist/worker.js
+!dist/cli.js
+!wasm/**
+!media/**
 !icon.png
-!assets/**

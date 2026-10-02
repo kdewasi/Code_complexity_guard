@@ -1,367 +1,178 @@
-# AI Code Quality Guard
+# Code Complexity Guard
 
-> 🤖 Automatically analyze and refactor complex Python code with AI-powered suggestions
+> Instant, offline code complexity analysis for 12 languages. See how complex every function is, how its run time and memory grow with input size, and exactly what to change. No AI, no API key, no Python install.
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://marketplace.visualstudio.com/items?itemName=your-publisher.codecomplexity)
+[![Version](https://img.shields.io/visual-studio-marketplace/v/Kishan-aicodeguard.codecomplexity)](https://marketplace.visualstudio.com/items?itemName=Kishan-aicodeguard.codecomplexity)
+[![Installs](https://img.shields.io/visual-studio-marketplace/i/Kishan-aicodeguard.codecomplexity)](https://marketplace.visualstudio.com/items?itemName=Kishan-aicodeguard.codecomplexity)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/)
+[![CI](https://github.com/kdewasi/Code_complexity_guard/actions/workflows/test.yml/badge.svg)](https://github.com/kdewasi/Code_complexity_guard/actions/workflows/test.yml)
 
-**AI Code Quality Guard** is a powerful VS Code extension that helps you write better Python code by analyzing complexity in real-time and providing intelligent refactoring suggestions powered by Claude AI.
+Open a file and every function gets a one-line verdict above it:
 
-![Demo](./assets/demo.gif)
-
----
-
-## ✨ Features
-
-### 🎯 Real-Time Complexity Analysis
-
-Analyze your Python code as you type with instant visual feedback:
-
-- **Cyclomatic complexity** calculation for every function
-- **Color-coded decorations** (green/yellow/red) based on complexity levels
-- **Gutter icons** showing complexity at a glance
-- **Hover tooltips** with detailed breakdown
-
-![Real-time Analysis](./assets/screenshots/realtime-analysis.png)
-
-### 💡 Smart Code Actions (Light Bulb)
-
-Get intelligent quick fixes right where you need them:
-
-- **💡 Show Refactoring Suggestions** - View AI-powered recommendations
-- **📊 View Complexity Breakdown** - See detailed decision points
-- **🚫 Ignore This Warning** - Add ignore comments
-- **⚙️ Configure Threshold** - Adjust complexity limits
-
-![Code Actions](./assets/screenshots/code-actions.png)
-
-### 🤖 AI-Powered Auto-Refactoring
-
-Let Claude AI automatically refactor your complex code:
-
-- **One-click refactoring** with Claude 3.5 Sonnet
-- **Side-by-side diff view** to review changes
-- **Safety validation** ensures code correctness
-- **Complexity verification** guarantees improvement
-
-![AI Refactoring](./assets/screenshots/ai-refactoring.png)
-
-### 📊 Problems Panel Integration
-
-See all complexity issues in one place:
-
-- **Warning/Error severity** based on thresholds
-- **Click to navigate** to problematic functions
-- **Quick fixes** available from problems panel
-
-![Suggestion Panel](./assets/screenshots/suggestion-panel.png)
-
----
-
-## 🚀 Installation
-
-### From VS Code Marketplace
-
-1. Open VS Code
-2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "AI Code Quality Guard"
-4. Click **Install**
-
-### Install Python Package
-
-The extension requires the `codecomplexity` Python package:
-
-```bash
-pip install codecomplexity
+```
+🟡 Needs attention · cyclomatic 5 · cognitive 7 · time O(n³) · space O(n²)
+💡 Linear search inside a loop
+def find_duplicates(items):
+    dupes = []
+    for i in range(len(items)):
+        for j in range(i + 1, len(items)):
+            if items[i] == items[j] and items[i] not in dupes:
+                dupes.append(items[i])
+    return dupes
 ```
 
-### Optional: Set Up AI Refactoring
-
-For AI-powered auto-refactoring, you'll need a Claude API key:
-
-1. Get an API key from [Anthropic Console](https://console.anthropic.com/)
-2. Add to VS Code settings: `codecomplexity.apiKey`
-3. Or set environment variable: `ANTHROPIC_API_KEY`
+Hover the name to see **why** (line by line), press `Ctrl+.` for the fix, or open the full **Complexity Report**.
 
 ---
 
-## 📋 Requirements
+## What it measures
 
-- **VS Code** 1.80.0 or higher
-- **Python** 3.8 or higher
-- **codecomplexity** Python package
-- **Claude API key** (optional, only for AI refactoring)
+| Metric | Question it answers | Comfortable range |
+|---|---|---|
+| **Grade A–D** | Is this function fine, or should I look at it? | A or B |
+| **Cyclomatic complexity** | How many paths run through it? (= test cases needed) | 1–8 |
+| **Cognitive complexity** | How hard is it for a person to follow? Nesting costs extra. | 0–15 |
+| **Time (Big-O)** | How does run time grow with the size of the input? | O(1) … O(n log n) |
+| **Space (Big-O)** | How much extra memory grows with the input? | O(1) … O(n) |
 
----
+Big-O is **estimated from the structure of the code** using a real parser (tree-sitter), not guessed by a language model:
 
-## 🎯 Quick Start
+- nested loops multiply; a loop variable that halves or doubles each step is `log n`; `while (i * i <= n)` is `√n`; a loop over a literal range is constant
+- known library costs are included: `sort` is `n log n`, `list.contains` / `x in list` / `indexOf` / `in_array` are `n`, copies and slices are `n`
+- recursion follows the standard recurrences: `fib(n-1) + fib(n-2)` is `2ⁿ`, binary search is `log n`, merge sort is `n log n`, tree walks are `n`, memoized recursion is `n`
+- calls to other functions **in the same file** are followed: a loop that calls an `O(n)` helper is `O(n²)`
+- allocations, appends inside loops, 2-D tables and recursion depth feed the memory estimate
 
-### 1. Open a Python File
+Every number comes with its evidence, so you can check the reasoning rather than trust it.
 
-Open any Python file in VS Code. The extension activates automatically!
+## Suggestions with before/after code
 
-### 2. See Complexity Analysis
+When a known slow or hard-to-read pattern is recognised, the extension explains what is happening, what to do, and the effect:
 
-Save the file (`Ctrl+S`) to trigger analysis. You'll see:
-- Colored decorations on complex functions
-- Complexity scores in the gutter
-- Issues in the Problems panel
+| Pattern | Suggestion | Effect |
+|---|---|---|
+| `x in list`, `.contains()`, `.includes()`, `in_array()` inside a loop | build a set / hash map once | O(n²) → O(n) |
+| nested loops that match elements by equality | index one side in a map | O(n²) → O(n) |
+| `s += part` inside a loop (Python, Java, C#, Go, Ruby) | join / StringBuilder | O(n²) → O(n) |
+| `fib(n-1) + fib(n-2)` style recursion | memoization / DP | O(2ⁿ) → O(n) |
+| `queue.pop(0)`, `array.shift()`, `list.remove(0)`, `array_shift()` in a loop | deque / index pointer | O(n²) → O(n) |
+| sorting inside a loop | sort once outside | O(n² log n) → O(n log n) |
+| `for (i = 0; i < strlen(s); i++)` | hoist the call | O(n²) → O(n) |
+| copies, regex compilation inside loops | hoist out of the loop | |
+| 4+ branch `if / else if` chains on one value | dispatch table / switch | readability |
+| 4+ levels of nesting | guard clauses, extract helper | readability |
+| 3+ guard checks at the top, 6+ parameters, 60+ lines, empty `catch` | extract / group / split | structure |
 
-### 3. Use Code Actions
+Snippets are written in the language of the file you are editing.
 
-Click on a complex function and look for the 💡 light bulb:
-- Click the light bulb or press `Ctrl+.`
-- Select an action to improve your code
+## Languages
 
-### 4. Try AI Refactoring (Optional)
+Python · Java · JavaScript · TypeScript · JSX/TSX · Go · Rust · C · C++ · C# · Ruby · PHP
 
-If you have an API key configured:
-- Click "Auto-Refactor with AI"
-- Review the changes in the diff view
-- Accept or reject the refactoring
+Each language is parsed with its official tree-sitter grammar (bundled as WebAssembly), so the analyser understands real syntax: decorators, lambdas, generics, `match`/`switch` expressions, comprehensions, Ruby blocks, LINQ, streams, closures and more.
 
----
+## Where you see it
 
-## ⚙️ Configuration
+- **CodeLens** above each function: grade, the four numbers and the top suggestion. Click to open the report.
+- **Hover** on a function name: the numbers with plain-language meaning and the evidence behind the Big-O.
+- **Gutter icon and overview ruler** colour-coded by grade.
+- **Problems panel**: functions that need attention and every suggestion, with quick fixes (`Ctrl+.`).
+- **Complexity Guard view** in the activity bar: all functions of the current file, worst first.
+- **Complexity Report** (editor title button or `Complexity Guard: Open Complexity Report`): a dashboard with cards, evidence, suggestions and before/after code.
+- **Analyze Whole Workspace**: scans every supported file and lists the hot spots across the project.
+- **Status bar**: the file's grade and how many functions to review.
 
-Access settings via `Ctrl+,` and search for "codecomplexity":
+Everything runs locally inside VS Code while you type. **No code ever leaves your machine**, and no account, API key, Python or other runtime is required. The extension works in untrusted and virtual workspaces.
 
-### Basic Settings
+## Commands
+
+| Command | What it does |
+|---|---|
+| `Complexity Guard: Open Complexity Report` | Dashboard for the current file |
+| `Complexity Guard: Analyze Current File` | Re-analyse and open the report |
+| `Complexity Guard: Analyze Whole Workspace` | Scan the project and list hot spots |
+| `Complexity Guard: What Do These Numbers Mean?` | Plain-language guide to the metrics |
+| `Complexity Guard: Toggle Inline Summaries (CodeLens)` | Hide or show the CodeLens line |
+| `Complexity Guard: Configure Thresholds` | Open the settings |
+| `Complexity Guard: Report an Issue` | Open the issue tracker |
+
+A short **walkthrough** is available under *Help → Get Started → Get started with Complexity Guard*.
+
+## Settings
 
 | Setting | Default | Description |
-|---------|---------|-------------|
-| `codecomplexity.pythonPath` | `"python"` | Path to Python interpreter |
-| `codecomplexity.warningThreshold` | `8` | Complexity warning level |
-| `codecomplexity.criticalThreshold` | `15` | Complexity error level |
-| `codecomplexity.enableRealtime` | `true` | Enable real-time analysis |
+|---|---|---|
+| `codecomplexity.warningThreshold` | `8` | Cyclomatic complexity above this is "Needs attention" |
+| `codecomplexity.criticalThreshold` | `15` | Cyclomatic complexity above this is "Poor" |
+| `codecomplexity.cognitiveWarningThreshold` | `15` | Cognitive complexity above this is "Needs attention" |
+| `codecomplexity.cognitiveCriticalThreshold` | `25` | Cognitive complexity above this is "Poor" |
+| `codecomplexity.enableRealtime` | `true` | Re-analyse while typing (debounced) |
+| `codecomplexity.analysisDelay` | `400` | Milliseconds of quiet before re-analysing |
+| `codecomplexity.showCodeLens` | `true` | Summary line above every function |
+| `codecomplexity.showDecorations` | `true` | Gutter icon and line highlight |
+| `codecomplexity.decorateHealthyFunctions` | `true` | Also mark A/B functions (turn off to only see problems) |
+| `codecomplexity.showDiagnostics` | `true` | Entries in the Problems panel |
+| `codecomplexity.maxFileSizeKB` | `1024` | Larger files are skipped |
+| `codecomplexity.enabledLanguages` | all | Remove a language to switch analysis off for it |
+| `codecomplexity.workspaceExclude` | build dirs | Glob skipped by *Analyze Whole Workspace* |
+| `codecomplexity.workspaceMaxFiles` | `1500` | Cap for *Analyze Whole Workspace* |
 
-### AI Settings (Optional)
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `codecomplexity.apiKey` | `""` | Claude API key |
-| `codecomplexity.aiModel` | `"claude-3-5-sonnet-20241022"` | AI model to use |
-| `codecomplexity.maxTokens` | `4000` | Max tokens per request |
-| `codecomplexity.confirmBeforeRefactor` | `true` | Ask before API calls |
-
-### Example Configuration
-
-```json
-{
-  "codecomplexity.pythonPath": "python3",
-  "codecomplexity.warningThreshold": 10,
-  "codecomplexity.criticalThreshold": 20,
-  "codecomplexity.enableRealtime": true,
-  "codecomplexity.apiKey": "sk-ant-..."
-}
-```
-
----
-
-## 📖 Understanding Complexity
-
-**Cyclomatic complexity** measures the number of independent paths through code:
-
-| Complexity | Rating | Recommendation |
-|------------|--------|----------------|
-| 1-5 | ✅ **Simple** | Low risk, easy to test |
-| 6-10 | 🟡 **Moderate** | Medium risk, consider simplifying |
-| 11-20 | 🟠 **Complex** | High risk, refactoring recommended |
-| 21+ | 🔴 **Very Complex** | Very high risk, refactor immediately |
-
-### What Increases Complexity?
-
-Each of these adds +1 to complexity:
-- `if`, `elif` statements
-- `for`, `while` loops
-- `and`, `or` operators
-- `try`, `except` blocks
-- `with` statements
-- Ternary operators
-- Comprehensions with conditions
-
----
-
-## 💡 Usage Examples
-
-### Example 1: Identify Complex Functions
-
-**Before** (Complexity: 12):
-```python
-def process_order(order, user, config):
-    if order is not None:
-        if user.is_authenticated:
-            if order.status == 'pending':
-                if config.auto_approve:
-                    if order.total < config.limit:
-                        return approve_order(order)
-    return None
-```
-
-The extension shows:
-- 🟡 Yellow decoration
-- Hover: "Complexity: 12 - Consider refactoring"
-- Light bulb with suggestions
-
-### Example 2: AI Refactoring
-
-**After AI Refactoring** (Complexity: 4):
-```python
-def process_order(order, user, config):
-    """Process order with validation."""
-    if not _can_process_order(order, user, config):
-        return None
-    return approve_order(order)
-
-def _can_process_order(order, user, config):
-    """Check if order can be processed."""
-    if order is None or not user.is_authenticated:
-        return False
-    if order.status != 'pending':
-        return False
-    return config.auto_approve and order.total < config.limit
-```
-
-**Result:** 67% complexity reduction! ✨
-
-### Example 3: Ignore Warnings
+### Ignoring a function or a file
 
 ```python
 # codecomplexity: ignore
-def legacy_function():
-    # Complex but can't refactor yet
+def legacy_parser(data):
     ...
 ```
 
----
+Put `codecomplexity: ignore-file` in a comment within the first five lines to skip a whole file. Any comment syntax works (`//`, `#`, `--`).
 
-## 🔧 Commands
+## Understanding the numbers
 
-Access via Command Palette (`Ctrl+Shift+P`):
+**Cyclomatic complexity** starts at 1 and adds 1 for each `if`, `else if`, loop, `case`, `catch`, `?:` and each `&&` / `||`. It is the number of independent paths, which is the minimum number of tests needed to cover the function.
 
-- **AI Code Quality Guard: Analyze current file** - Run full analysis
-- **AI Code Quality Guard: Get refactoring suggestions** - Show suggestions
+**Cognitive complexity** (the SonarSource definition) is about readability: each branch or loop adds 1 **plus its nesting depth**, so an `if` inside a loop inside an `if` costs 3. `else`/`else if` and runs of the same boolean operator are cheap; recursion adds 1.
 
----
+**Time and space** are asymptotic estimates of the worst case. The analyser is deliberately conservative: an unknown `while` loop is assumed linear, and the confidence level (high / medium / low) is shown next to every estimate. Treat `O(n²)` on a function that only ever sees ten items as information, not as an order.
 
-## 🐛 Troubleshooting
+| Grade | Meaning |
+|---|---|
+| 🟢 **A** Excellent | small, readable, efficient |
+| 🔵 **B** Good | some branching or size, nothing urgent |
+| 🟡 **C** Needs attention | over a threshold, deeply nested, or doing avoidable work |
+| 🔴 **D** Poor | over a critical threshold or exponential/cubic time; refactor soon |
 
-### Extension Not Activating
+## Command line / CI
 
-**Problem:** Extension doesn't start when opening Python files
+The same engine ships as a CLI inside the extension package (and in this repository after `npm run build`):
 
-**Solution:**
-1. Check Python is installed: `python --version`
-2. Reload VS Code: `Ctrl+Shift+P` → "Reload Window"
-3. Check Output panel: View → Output → "AI Code Quality Guard"
-
-### Python Package Not Found
-
-**Problem:** "codecomplexity package not installed"
-
-**Solution:**
 ```bash
-pip install codecomplexity
-# or
-pip install --user codecomplexity
+node dist/cli.js src/                    # report for every supported file
+node dist/cli.js src/ --json             # machine-readable
+node dist/cli.js src/ --fail-on C        # exit 1 if any function is rated C or worse
+node dist/cli.js src/ --warning 10 --critical 20
 ```
 
-### Decorations Not Showing
-
-**Problem:** No colored highlights on functions
-
-**Solution:**
-1. Save the file (`Ctrl+S`)
-2. Check file is saved as `.py`
-3. Check `codecomplexity.enableRealtime` is `true`
-4. Check Output panel for errors
-
-### AI Refactoring Not Working
-
-**Problem:** "API key not configured"
-
-**Solution:**
-1. Get API key from https://console.anthropic.com/
-2. Add to settings: `codecomplexity.apiKey`
-3. Or set environment variable: `ANTHROPIC_API_KEY`
-
----
-
-## ❓ FAQ
-
-**Q: Does this work with other languages?**  
-A: Currently Python only. Other languages may be added in future versions.
-
-**Q: How much does AI refactoring cost?**  
-A: Typically $0.01-0.05 per function using Claude 3.5 Sonnet.
-
-**Q: Can I use this without the API key?**  
-A: Yes! All features work except AI auto-refactoring. You still get analysis, decorations, and manual suggestions.
-
-**Q: Is my code sent to the cloud?**  
-A: Only when using AI refactoring. Regular analysis runs locally.
-
-**Q: How accurate is the complexity calculation?**  
-A: Very accurate - uses AST parsing, same method as professional tools.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Setup
+## Development
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/codecomplexity.git
-cd codecomplexity/codecomplexity-vscode
-
-# Install dependencies
+git clone https://github.com/kdewasi/Code_complexity_guard.git
+cd Code_complexity_guard
 npm install
-
-# Compile TypeScript
-npm run compile
-
-# Run extension
-# Press F5 in VS Code
+npm run build        # type-check + bundle to dist/
+npm test             # engine unit tests (no VS Code needed)
+npm run package      # produce the .vsix
 ```
 
----
+Press `F5` in VS Code to launch an Extension Development Host. The engine lives in `src/engine` and has no dependency on VS Code; language support is one spec file each under `src/engine/languages/`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## 📄 License
+## Privacy and security
 
-MIT License - see [LICENSE](LICENSE) file for details.
+- Analysis is pure text processing inside the extension host (and a worker thread for large files).
+- No network requests, no child processes, no files written.
+- The report webview uses a strict Content-Security-Policy and escapes all content.
+- No telemetry.
 
----
+## License
 
-## 🙏 Acknowledgments
-
-- **Anthropic** for Claude AI
-- **VS Code team** for excellent extension API
-- **Python community** for inspiration
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/codecomplexity/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/codecomplexity/discussions)
-- **Documentation**: [Full Documentation](./docs/)
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Support for more languages (JavaScript, TypeScript, Java)
-- [ ] Team dashboards for complexity tracking
-- [ ] Historical complexity trends
-- [ ] Custom pattern detection
-- [ ] Integration with CI/CD pipelines
-
----
-
-**Made with ❤️ by developers, for developers**
-
-[⭐ Star on GitHub](https://github.com/yourusername/codecomplexity) | [📦 VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=your-publisher.codecomplexity) | [📖 Documentation](./docs/)
+MIT. Grammars are the official tree-sitter grammars (MIT) bundled as WebAssembly.

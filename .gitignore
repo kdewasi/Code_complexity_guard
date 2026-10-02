@@ -3,13 +3,11 @@ node_modules
 .pnp
 .pnp.js
 
-# Testing
-coverage
-
-# Production
+# Build output
 out
 dist
 build
+coverage
 
 # Misc
 .DS_Store

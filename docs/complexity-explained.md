@@ -1,593 +1,115 @@
-# Understanding Cyclomatic Complexity
+# The numbers, explained
 
-A comprehensive guide to understanding code complexity metrics.
+This page explains every number the extension shows and exactly how it is computed, so you can check the reasoning yourself.
 
-## What is Cyclomatic Complexity?
+## Cyclomatic complexity
 
-**Cyclomatic complexity** is a software metric that measures the number of linearly independent paths through a program's source code. In simpler terms, it counts how many different ways your code can execute.
+*How many independent paths run through the function.* It is the minimum number of test cases needed to cover every branch.
 
-### Why It Matters
+Starts at **1**, then **+1** for each:
 
-Complex code is:
-- **Harder to understand** - More cognitive load for developers
-- **Harder to test** - More test cases needed for full coverage
-- **More likely to have bugs** - Complexity correlates with defect density
-- **Harder to maintain** - Changes are riskier and take longer
+- `if`, `elif` / `else if` (a plain `else` adds nothing)
+- `for`, `while`, `do`, `foreach`, comprehension clauses, Ruby iterator blocks and callback blocks with statement bodies (`forEach(x => { … })`)
+- `case` / `when` / match arm (not `default` / `_`)
+- `catch` / `except` / `rescue`
+- `?:` and other conditional expressions
+- each `&&`, `||`, `and`, `or`, `??`
 
-### The Formula
+| Range | Reading |
+|---|---|
+| 1–8 | easy to test |
+| 9–15 | getting hard to test; consider splitting |
+| 16+ | hard to test and to change safely |
 
-```
-Complexity = 1 + number of decision points
-```
+## Cognitive complexity
 
-A **decision point** is anywhere the code can branch:
-- `if` / `elif` statements
-- `for` / `while` loops
-- `and` / `or` operators
-- `try` / `except` blocks
-- Ternary operators (`x if condition else y`)
-- List/dict comprehensions with `if`
+*How hard the function is for a person to follow.* Defined by SonarSource; the rules the extension applies:
 
----
+- **+1** for each `if`, `else if`, `else`, `?:`, `switch`, loop, `catch`, `goto`/labelled jump, and recursive call
+- **+ nesting level** on top of that for `if`, `?:`, `switch`, loops and `catch` (not for `else`/`else if`)
+- **+1 per run** of the same boolean operator: `a && b && c` costs 1, `a && b || c` costs 2
+- nesting level increases inside branches, loops, `catch` blocks and lambdas
 
-## Complexity Levels
-
-### ✅ Simple (1-5)
-
-**Characteristics:**
-- Linear flow with few branches
-- Easy to understand at a glance
-- Low testing burden
-- Low risk of bugs
-
-**Example:**
-```python
-def calculate_total(price, quantity):
-    """Complexity: 1"""
-    return price * quantity
-```
-
-**Recommendation:** ✅ Good code - no action needed
-
----
-
-### 🟡 Moderate (6-10)
-
-**Characteristics:**
-- Some branching logic
-- Still manageable
-- Moderate testing needed
-- Medium risk
-
-**Example:**
-```python
-def calculate_discount(price, customer_type):
-    """Complexity: 3"""
-    if customer_type == 'premium':
-        return price * 0.8
-    elif customer_type == 'regular':
-        return price * 0.9
-    else:
-        return price
-```
-
-**Recommendation:** 🟡 Consider simplifying if it grows more complex
-
----
-
-### 🟠 Complex (11-20)
-
-**Characteristics:**
-- Multiple nested conditions
-- Hard to follow logic
-- Extensive testing required
-- High risk of bugs
-
-**Example:**
-```python
-def process_order(order, user, config):
-    """Complexity: 12"""
-    if order is not None:
-        if user.is_authenticated:
-            if order.status == 'pending':
-                if config.auto_approve:
-                    if order.total < config.limit:
-                        if order.items:
-                            if all(item.in_stock for item in order.items):
-                                return approve_order(order)
-    return None
-```
-
-**Recommendation:** 🟠 Refactoring recommended
-
----
-
-### 🔴 Very Complex (21+)
-
-**Characteristics:**
-- Deeply nested logic
-- Nearly impossible to understand
-- Testing is very difficult
-- Very high bug risk
-
-**Example:**
-```python
-def legacy_processor(data, options, flags):
-    """Complexity: 25+"""
-    # Imagine 25+ decision points here...
-    # This is a maintenance nightmare!
-```
-
-**Recommendation:** 🔴 Refactor immediately
-
----
-
-## How Complexity is Calculated
-
-### Basic Example
+Example:
 
 ```python
-def example1(x):
-    """Complexity: 1"""
-    return x * 2
+def process(user, order, cfg):      # cognitive 15, cyclomatic 6
+    if user is not None:            # +1
+        if user.active:             # +2 (nested once)
+            if order.pending:       # +3
+                if cfg.auto:        # +4
+                    if order.ok:    # +5
+                        return 1
 ```
 
-**Calculation:**
-- Base: 1
-- Decision points: 0
-- **Total: 1**
-
----
-
-### With If Statement
-
-```python
-def example2(x):
-    """Complexity: 2"""
-    if x > 0:
-        return x
-    return 0
-```
-
-**Calculation:**
-- Base: 1
-- `if`: +1
-- **Total: 2**
-
----
-
-### With If/Elif/Else
-
-```python
-def example3(x):
-    """Complexity: 3"""
-    if x > 0:
-        return 1
-    elif x < 0:
-        return -1
-    else:
-        return 0
-```
-
-**Calculation:**
-- Base: 1
-- `if`: +1
-- `elif`: +1
-- `else`: +0 (doesn't add complexity)
-- **Total: 3**
-
----
-
-### With Loops
-
-```python
-def example4(items):
-    """Complexity: 2"""
-    total = 0
-    for item in items:
-        total += item
-    return total
-```
-
-**Calculation:**
-- Base: 1
-- `for`: +1
-- **Total: 2**
-
----
-
-### With Boolean Operators
-
-```python
-def example5(x, y):
-    """Complexity: 3"""
-    if x > 0 and y > 0:
-        return x + y
-    return 0
-```
-
-**Calculation:**
-- Base: 1
-- `if`: +1
-- `and`: +1
-- **Total: 3**
-
----
-
-### With Try/Except
-
-```python
-def example6(x):
-    """Complexity: 3"""
-    try:
-        return 1 / x
-    except ZeroDivisionError:
-        return 0
-    except ValueError:
-        return -1
-```
-
-**Calculation:**
-- Base: 1
-- First `except`: +1
-- Second `except`: +1
-- **Total: 3**
-
----
-
-### Complex Example
-
-```python
-def complex_example(x, y, z):
-    """Complexity: 7"""
-    result = 0
-    
-    if x > 0:  # +1
-        if y > 0:  # +1
-            result = x + y
-        elif y < 0:  # +1
-            result = x - y
-    
-    for i in range(z):  # +1
-        if i % 2 == 0:  # +1
-            result += i
-    
-    return result if result > 0 else 0  # +1 (ternary)
-```
-
-**Calculation:**
-- Base: 1
-- First `if`: +1
-- Nested `if`: +1
-- `elif`: +1
-- `for`: +1
-- `if` in loop: +1
-- Ternary: +1
-- **Total: 7**
-
----
-
-## Industry Guidelines
-
-### McCabe's Original Recommendation
-
-Thomas McCabe (who invented the metric) recommended:
-
-- **1-10**: Low risk, simple procedure
-- **11-20**: Moderate risk, more complex
-- **21-50**: High risk, complex, alarming
-- **50+**: Untestable, very high risk
-
-### Modern Best Practices
-
-Most teams use stricter thresholds:
-
-| Threshold | Level | Action |
-|-----------|-------|--------|
-| 1-5 | ✅ Simple | None needed |
-| 6-10 | 🟡 Moderate | Consider refactoring |
-| 11-15 | 🟠 Complex | Refactoring recommended |
-| 16-20 | 🔴 Very Complex | Refactoring strongly recommended |
-| 21+ | ⛔ Extremely Complex | Refactor immediately |
-
-### By Project Type
-
-**Web Applications:**
-- Warning: 8
-- Critical: 15
-
-**System Software:**
-- Warning: 10
-- Critical: 20
-
-**Safety-Critical Systems:**
-- Warning: 5
-- Critical: 10
-
-**Legacy Code (gradual improvement):**
-- Warning: 15
-- Critical: 25
-
----
-
-## Common Patterns That Increase Complexity
-
-### 1. Nested Conditions
-
-```python
-# Complexity: 5
-if condition1:
-    if condition2:
-        if condition3:
-            if condition4:
-                do_something()
-```
-
-**Better:**
-```python
-# Complexity: 4
-if not condition1:
-    return
-if not condition2:
-    return
-if not condition3:
-    return
-if not condition4:
-    return
-do_something()
-```
-
----
-
-### 2. Long If/Elif Chains
-
-```python
-# Complexity: 6
-if status == 'pending':
-    handle_pending()
-elif status == 'approved':
-    handle_approved()
-elif status == 'rejected':
-    handle_rejected()
-elif status == 'cancelled':
-    handle_cancelled()
-elif status == 'completed':
-    handle_completed()
-```
-
-**Better:**
-```python
-# Complexity: 2
-handlers = {
-    'pending': handle_pending,
-    'approved': handle_approved,
-    'rejected': handle_rejected,
-    'cancelled': handle_cancelled,
-    'completed': handle_completed,
-}
-handler = handlers.get(status, handle_unknown)
-handler()
-```
-
----
-
-### 3. Complex Boolean Logic
-
-```python
-# Complexity: 5
-if (user.is_admin or user.is_moderator) and \
-   (post.is_published or post.is_draft) and \
-   not post.is_deleted:
-    allow_edit()
-```
-
-**Better:**
-```python
-# Complexity: 3
-def can_edit_post(user, post):
-    has_permission = user.is_admin or user.is_moderator
-    is_editable = post.is_published or post.is_draft
-    is_available = not post.is_deleted
-    return has_permission and is_editable and is_available
-
-if can_edit_post(user, post):
-    allow_edit()
-```
-
----
-
-## Limitations of Complexity Metrics
-
-### What Complexity Measures
-
-✅ **Does measure:**
-- Number of decision points
-- Control flow complexity
-- Testing difficulty
-
-### What Complexity Doesn't Measure
-
-❌ **Doesn't measure:**
-- Code readability
-- Variable naming quality
-- Documentation quality
-- Algorithmic complexity (Big O)
-- Code duplication
-- Coupling between modules
-
-### Example of Low Complexity, Bad Code
-
-```python
-def x(a, b):
-    """Complexity: 1 - but terrible code!"""
-    return a * b + a / b - a ** b
-```
-
-This has low complexity but is:
-- Poorly named
-- Undocumented
-- Unclear purpose
-- No error handling
-
-**Lesson:** Use complexity as one metric among many!
-
----
-
-## Reducing Complexity
-
-### Technique 1: Extract Methods
-
-**Before (Complexity: 12):**
-```python
-def process_user(user):
-    if not user.email:
-        raise ValueError("Email required")
-    if not user.name:
-        raise ValueError("Name required")
-    if not user.age or user.age < 18:
-        raise ValueError("Must be 18+")
-    
-    if user.is_premium:
-        discount = 0.2
-    elif user.is_member:
-        discount = 0.1
-    else:
-        discount = 0
-    
-    # ... more logic
-```
-
-**After (Complexity: 4 + 3 + 3 = 10 total, but simpler):**
-```python
-def process_user(user):
-    validate_user(user)
-    discount = calculate_discount(user)
-    # ... more logic
-
-def validate_user(user):
-    if not user.email:
-        raise ValueError("Email required")
-    if not user.name:
-        raise ValueError("Name required")
-    if not user.age or user.age < 18:
-        raise ValueError("Must be 18+")
-
-def calculate_discount(user):
-    if user.is_premium:
-        return 0.2
-    elif user.is_member:
-        return 0.1
-    return 0
-```
-
----
-
-### Technique 2: Early Returns
-
-**Before (Complexity: 5):**
-```python
-def process(data):
-    if data:
-        if data.is_valid:
-            if data.is_complete:
-                return process_data(data)
-    return None
-```
-
-**After (Complexity: 4):**
-```python
-def process(data):
-    if not data:
-        return None
-    if not data.is_valid:
-        return None
-    if not data.is_complete:
-        return None
-    return process_data(data)
-```
-
----
-
-### Technique 3: Strategy Pattern
-
-**Before (Complexity: 6):**
-```python
-def calculate_shipping(method, weight):
-    if method == 'standard':
-        return weight * 2
-    elif method == 'express':
-        return weight * 5
-    elif method == 'overnight':
-        return weight * 10
-    elif method == 'international':
-        return weight * 15
-    return weight
-```
-
-**After (Complexity: 1):**
-```python
-SHIPPING_RATES = {
-    'standard': 2,
-    'express': 5,
-    'overnight': 10,
-    'international': 15,
-}
-
-def calculate_shipping(method, weight):
-    rate = SHIPPING_RATES.get(method, 1)
-    return weight * rate
-```
-
----
-
-## Tools and Integration
-
-### VS Code Extension
-
-This extension provides:
-- Real-time complexity calculation
-- Visual indicators
-- Refactoring suggestions
-- AI-powered improvements
-
-### Python CLI
-
-```bash
-# Analyze a file
-codecomplexity analyze myfile.py
-
-# Get suggestions
-codecomplexity suggest myfile.py --function my_function
-```
-
-### CI/CD Integration
-
-```yaml
-# GitHub Actions
-- name: Check complexity
-  run: codecomplexity analyze src/ --threshold 15
-```
-
----
-
-## Further Reading
-
-- **Original Paper**: "A Complexity Measure" by Thomas J. McCabe (1976)
-- **Book**: "Code Complete" by Steve McConnell
-- **Book**: "Clean Code" by Robert C. Martin
-- **Tool**: Radon (Python complexity tool)
-- **Tool**: SonarQube (multi-language analysis)
-
----
-
-## Summary
-
-- **Complexity measures decision points** in code
-- **Lower is better** - aim for < 10
-- **Use as a guide**, not absolute rule
-- **Combine with other metrics** for best results
-- **Refactor complex code** to improve maintainability
-
----
-
-**Remember:** The goal isn't zero complexity - it's **appropriate** complexity for the task!
+| Range | Reading |
+|---|---|
+| 0–15 | reads easily |
+| 16–25 | dense |
+| 26+ | split it up |
+
+## Estimated time (Big-O)
+
+*How the run time grows when the input grows.* The analyser builds the estimate from the structure of the code:
+
+**Loops.** Each loop contributes a factor, and nested loops multiply:
+
+| Loop shape | Factor |
+|---|---|
+| `for x in items`, `for (… ; i < n; i++)`, `foreach`, `range`, `.each`, `.map(cb)` | n |
+| loop variable multiplied/divided/shifted each step (`i *= 2`, `n //= 2`, `i >>= 1`) | log n |
+| binary search (`mid = (lo + hi) / 2` and `lo = mid + 1` / `hi = mid - 1`) | log n |
+| `while (i * i <= n)` | √n |
+| `for i in range(10)`, `for (i = 0; i < 100; i++)`, iterating a literal list | 1 |
+| `while True`, `for (;;)`, `loop {}` | n (low confidence) |
+
+**Calls with known cost** multiply with the loops around them: `sort` is n log n; `x in list`, `.contains`, `.includes`, `.indexOf`, `in_array`, `std::find` are n; copies (`list(x)`, `[...x]`, `.clone()`, `.ToList()`), slices with one bound, `strlen`, `sum`, `join` are n; `queue.pop(0)`, `array.shift()`, `list.remove(0)` are n. Membership on a known set/map/dict is constant.
+
+**Recursion.** The number of self-calls and how the argument shrinks decide the recurrence:
+
+| Shape | Result |
+|---|---|
+| 2+ self-calls, input shrinks by a constant (`fib(n-1) + fib(n-2)`), no memo | 2ⁿ |
+| same, but memoized (`@lru_cache`, `memo[n]`, `cache.has(n)` …) | n × work per call |
+| 2+ self-calls on halves (`merge_sort(a[:mid])`) | n (constant work per level) or n log n (linear work per level) |
+| 1 self-call, halving (`search(lo, mid)`) | log n |
+| 1 self-call, shrinks by a constant | n × work per call |
+| calls on `node.left` / `node.right` / children / loop variables (tree walks) | n (every node once) |
+
+**Same-file calls.** If `f` calls `g` inside a loop and `g` is O(n) in the same file, `f` is O(n²). The chain is followed through several levels.
+
+**Confidence.** *high* when loops have explicit bounds and known updates; *medium* when library costs or recurrences are involved; *low* when a loop's bound could not be determined or the recursion shape is unclear.
+
+| Growth | What it means in practice |
+|---|---|
+| O(1), O(log n) | scales to anything |
+| O(n), O(n log n) | fine for millions of items |
+| O(n²) | fine for thousands, slow beyond ~100k |
+| O(n³) | only for small inputs |
+| O(2ⁿ) | only for tiny inputs (dozens) |
+
+## Estimated extra memory (Big-O)
+
+Counts memory that grows with the input, beyond the input itself:
+
+- a collection that gets one entry per loop iteration (`out.append(x)`, `list.add(x)`, `xs = append(xs, x)`, `$a[] = x`, `xs << x`, `m[k] = v`) → n per loop level
+- comprehensions, `map`/`filter`/`collect` results, copies, slices, `sorted()` → n
+- allocations sized by the input (`[0] * n`, `new int[n][n]`, `make([]T, n)`, `vec![0; n]`) → n or n²
+- recursion depth: one stack frame per pending call → n for linear recursion, log n for halving
+
+In-place updates of an array that was passed in do not count.
+
+## Grades
+
+| Grade | Rules |
+|---|---|
+| 🟢 **A** Excellent | cyclomatic ≤ half the warning limit, cognitive ≤ half its limit, time ≤ n log n, nothing flagged |
+| 🔵 **B** Good | under all thresholds; may be quadratic, 4–5 levels deep, 60–120 lines or have info-level suggestions |
+| 🟡 **C** Needs attention | above a warning threshold, cubic time, 6+ levels deep, 120+ lines, 8+ parameters, or a warning-level suggestion |
+| 🔴 **D** Poor | above a critical threshold, exponential or quartic time, or a critical suggestion |
+
+The file grade is **D** if any function is D, **C** if several functions are C, **B** if a few are, **A** otherwise.
+
+## What is *not* measured
+
+Cyclomatic and cognitive complexity say nothing about naming, comments, duplication or coupling, and Big-O says nothing about constant factors or cache behaviour. Use the numbers as a guide to where to look, not as a verdict on quality.

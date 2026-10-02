@@ -1,50 +1,90 @@
 name: Publish Extension
 
+# Runs when a version tag is pushed (git tag v1.2.3 && git push origin v1.2.3),
+# when a release branch is pushed (release/v1.2.3), or when started by hand
+# from the Actions tab ("Run workflow"). In the last two cases the tag is
+# created from the pushed commit by the release step.
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'release/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (must match package.json), e.g. 1.0.0'
+        required: true
+        type: string
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
 
-    - name: Install dependencies
-      run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Run tests
-      run: |
-        # Run tests (xvfb is needed for UI tests on Linux)
-        xvfb-run -a npm test
-      # If strict UI tests are not possible on headless CI without more config, 
-      # you might want to switch to unit tests only or ensure the test runner supports headless.
-      continue-on-error: true  # Optional: prevent build fail if UI tests are flaky on CI
+      - name: Build
+        run: npm run build
 
-    - name: Compile
-      run: npm run compile
+      - name: Unit tests
+        run: npm test
 
-    - name: Package Extension
-      run: npx vsce package
+      - name: Resolve the release version
+        id: version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            WANTED="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "branch" ]; then
+            WANTED="${GITHUB_REF_NAME#release/}"
+            WANTED="${WANTED#v}"
+          else
+            WANTED="${GITHUB_REF_NAME#v}"
+          fi
+          if [ "$PKG_VERSION" != "$WANTED" ]; then
+            echo "package.json version ($PKG_VERSION) does not match the requested release ($WANTED)"
+            exit 1
+          fi
+          echo "version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$PKG_VERSION" >> "$GITHUB_OUTPUT"
 
-    - name: Publish to Marketplace
-      run: npx vsce publish -p ${{ secrets.VSCE_PAT }}
-      continue-on-error: true # Don't fail if already published (useful for re-runs)
+      - name: Package
+        run: npx vsce package --no-dependencies
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: "*.vsix"
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release with the .vsix
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Code Complexity Guard ${{ steps.version.outputs.version }}
+          files: '*.vsix'
+          generate_release_notes: true
+          body: |
+            Install from the Marketplace: https://marketplace.visualstudio.com/items?itemName=Kishan-aicodeguard.codecomplexity
+
+            Or install the attached `.vsix`: `code --install-extension codecomplexity-${{ steps.version.outputs.version }}.vsix`
+
+            See CHANGELOG.md for details.
+
+      - name: Publish to the VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::warning::VSCE_PAT secret is not set; skipping the Marketplace upload. Add it under Settings > Secrets and variables > Actions, then re-run this job or run 'npx vsce publish' locally (see PUBLISHING_GUIDE.md)."
+            exit 0
+          fi
+          npx vsce publish --no-dependencies -p "$VSCE_PAT"
