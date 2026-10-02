@@ -2,7 +2,7 @@
     "name": "codecomplexity",
     "displayName": "Code Complexity Guard",
     "description": "Offline code complexity analysis for 12 languages: cyclomatic and cognitive complexity, estimated Big-O time and space, plain-language verdicts and concrete optimization suggestions. No AI, no API key, no Python required.",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "publisher": "Kishan-aicodeguard",
     "author": {
         "name": "Kishan Dewasi"
