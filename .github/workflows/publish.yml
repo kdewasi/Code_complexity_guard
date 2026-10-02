@@ -1,12 +1,15 @@
 name: Publish Extension
 
-# Runs when a version tag is pushed (git tag v1.2.3 && git push origin v1.2.3)
-# or when started by hand from the Actions tab ("Run workflow"), in which case
-# the tag is created from the selected branch by the release step.
+# Runs when a version tag is pushed (git tag v1.2.3 && git push origin v1.2.3),
+# when a release branch is pushed (release/v1.2.3), or when started by hand
+# from the Actions tab ("Run workflow"). In the last two cases the tag is
+# created from the pushed commit by the release step.
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - 'release/**'
   workflow_dispatch:
     inputs:
       version:
@@ -45,6 +48,9 @@ jobs:
           PKG_VERSION=$(node -p "require('./package.json').version")
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             WANTED="${{ inputs.version }}"
+          elif [ "${{ github.ref_type }}" = "branch" ]; then
+            WANTED="${GITHUB_REF_NAME#release/}"
+            WANTED="${WANTED#v}"
           else
             WANTED="${GITHUB_REF_NAME#v}"
           fi
