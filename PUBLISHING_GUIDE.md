@@ -38,6 +38,6 @@ The version in `package.json` must be higher than the one on the Marketplace. `n
 
 ## Verifying
 
-- Install the generated `.vsix` locally: `code --install-extension codecomplexity-1.0.0.vsix`.
+- Install the generated `.vsix` locally: `code --install-extension codecomplexity-1.0.1.vsix`.
 - Open any `.py` / `.java` / `.ts` file: a CodeLens line must appear above each function within a second.
 - The Marketplace listing takes a few minutes to update after publishing.

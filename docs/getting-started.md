@@ -7,7 +7,7 @@
 
 That is all. There is nothing else to install: no Python, no account, no API key.
 
-Alternatively, install a downloaded package: `code --install-extension codecomplexity-1.0.0.vsix`.
+Alternatively, install a downloaded package: `code --install-extension codecomplexity-1.0.1.vsix`.
 
 ## First look
 

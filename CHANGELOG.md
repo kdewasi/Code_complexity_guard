@@ -3,6 +3,11 @@
 All notable changes to **Code Complexity Guard** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-02
+
+### Changed
+- New logo: a shield holding the three grade bars (green, amber, red) on a navy tile. The vector source is in `media/logo.svg`.
+
 ## [1.0.0] - 2026-10-02
 
 A complete rewrite. The extension no longer needs an AI API key, a Python installation or any external process.
@@ -44,6 +49,7 @@ A complete rewrite. The extension no longer needs an AI API key, a Python instal
 
 - Initial release: cyclomatic complexity for Python via an external Python package, optional AI refactoring.
 
+[1.0.1]: https://github.com/kdewasi/Code_complexity_guard/releases/tag/v1.0.1
 [1.0.0]: https://github.com/kdewasi/Code_complexity_guard/releases/tag/v1.0.0
 [0.1.3]: https://github.com/kdewasi/Code_complexity_guard/commit/4440716
 [0.1.0]: https://github.com/kdewasi/Code_complexity_guard/commit/8155dc0
